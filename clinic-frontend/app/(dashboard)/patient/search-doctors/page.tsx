@@ -33,7 +33,7 @@ export default function SearchDoctorsPage() {
       id: 'DOC-2',
       name: 'Dr. Sneha Das',
       specialty: 'Dermatology',
-      clinic: 'Park Street Medicare',
+      clinic: 'Newtown Medicare',
       experience: '8 Yrs',
       fee: '₹600',
       rating: 4.9,

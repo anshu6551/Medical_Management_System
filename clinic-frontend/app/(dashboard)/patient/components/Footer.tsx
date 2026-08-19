@@ -136,7 +136,7 @@ export default function Footer() {
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, color: '#64748B' }}>
                 <LocationOnOutlined sx={{ color: '#4F46E5', fontSize: 20 }} />
                 <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.95rem' }}>
-                  Park Street Medical Hub, Kolkata
+                   Medical Hub, Kolkata
                 </Typography>
               </Box>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, color: '#64748B' }}>

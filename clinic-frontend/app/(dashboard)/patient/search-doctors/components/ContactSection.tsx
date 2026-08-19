@@ -196,7 +196,7 @@ export default function ContactSection() {
                     Location
                   </Typography>
                   <Typography variant="h6" sx={{ color: '#1E1B4B', fontWeight: 800 }}>
-                    Park Street Medical Hub, Kolkata, WB
+                     Medical Hub, Kolkata, WB
                   </Typography>
                 </Box>
               </Box>

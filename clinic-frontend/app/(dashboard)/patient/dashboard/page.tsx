@@ -130,7 +130,7 @@ export default function MyBookingsPage() {
             passNo: item.appointmentId ? `OPD-PASS-${item.appointmentId.replace('APT-', '')}` : `OPD-PASS-${item._id.slice(-4)}`,
             doctorName: item.doctorName || 'Dr. Specialist',
             specialty: item.specialization || 'General Physician',
-            clinic: item.clinicName || 'City Health Clinic, Park Street',
+            clinic: item.clinicName || 'City Health Clinic, Newtown',
             doctorImg:
               item.doctorImg ||
               'https://images.unsplash.com/photo-1537368910025-700350fe46c7?auto=format&fit=crop&w=400&q=80',
