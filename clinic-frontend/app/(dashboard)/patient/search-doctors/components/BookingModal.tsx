@@ -97,7 +97,7 @@ export default function BookingModal({
 
       // 2. Razorpay Popup Options
       const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_TQjbr9oIz0WjrY',
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID ,
         amount: order.amount,
         currency: order.currency || 'INR',
         name: 'MediPulse Healthcare',
