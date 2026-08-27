@@ -21,7 +21,7 @@ export default function AboutSection() {
               <Box
                 component="img"
                 src="https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?auto=format&fit=crop&w=800&q=80"
-                alt="About MediPulse"
+                alt="About LifeSpire"
                 sx={{
                   width: '100%',
                   height: { xs: '350px', md: '480px' },
@@ -35,7 +35,7 @@ export default function AboutSection() {
           {/* Right Text Content */}
           <Grid item xs={12} md={6} size={{xs:12,md:6}}>
             <Chip
-              label="MediPulse  |  About Us →"
+              label="LifeSpire  |  About Us →"
               size="small"
               sx={{
                 bgcolor: '#EEF2FF',
@@ -72,7 +72,7 @@ export default function AboutSection() {
                 fontWeight: 500,
               }}
             >
-              At MediPulse, we go beyond just treating symptoms — we focus on addressing the underlying causes of illness and promoting holistic well-being. Whether you're seeking preventive care, managing a chronic condition, or in need of specialized treatment, you can trust that you're in good hands with our team.
+              At LifeSpire, we go beyond just treating symptoms — we focus on addressing the underlying causes of illness and promoting holistic well-being. Whether you're seeking preventive care, managing a chronic condition, or in need of specialized treatment, you can trust that you're in good hands with our team.
             </Typography>
           </Grid>
         </Grid>

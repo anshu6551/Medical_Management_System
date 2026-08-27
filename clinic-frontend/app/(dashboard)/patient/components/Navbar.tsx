@@ -130,7 +130,7 @@ export default function Navbar() {
               <FavoriteOutlined fontSize="small" />
             </Box>
             <Typography variant="h6" sx={{ fontWeight: 900, color: '#1E1B4B', letterSpacing: '-0.5px' }}>
-              Medi<span style={{ color: '#4F46E5' }}>Pulse</span>
+              Life<span style={{ color: '#4F46E5' }}>Spire</span>
             </Typography>
             <Chip
               label="Patient Care"

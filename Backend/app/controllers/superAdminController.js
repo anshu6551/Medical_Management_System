@@ -3,6 +3,9 @@ const User = require("../models/UserModels");
 const Subscription = require("../models/SubscriptionModel");
 const httpStatusCode = require("../utils/httpStatusCode");
 const SystemSetting = require("../models/SystemSettingModel");
+const bcrypt = require("bcrypt");
+const crypto = require("crypto");
+const emailService = require("../utils/emailService");
 
 class SuperAdminController {
   // 1. GET SYSTEM GOVERNANCE DASHBOARD STATS
@@ -80,36 +83,92 @@ class SuperAdminController {
   // 3. ONBOARD NEW CLINIC TENANT
   async onboardClinic(req, res) {
     try {
-      const { name, email, phone, city, address, ownerId, subscriptionPlan } =
-        req.body;
-
-      if (!name || !email || !phone || !city) {
-        return res.status(httpStatusCode.BAD_REQUEST).json({
-          success: false,
-          message: "Clinic name, email, phone, and city are required",
-        });
-      }
-
-      const newClinic = await Clinic.create({
+      const {
         name,
-        email: email.toLowerCase().trim(),
+        email,
         phone,
         city,
         address,
-        ownerId,
+        password,
+        adminName,
         subscriptionPlan,
-        status: "APPROVED", // Directly approved when onboarded by Super Admin
+      } = req.body;
+
+      if (!name || !email || !phone || !city || !password) {
+        return res.status(httpStatusCode.BAD_REQUEST).json({
+          success: false,
+          message: "Clinic name, email, phone, city, and password are required",
+        });
+      }
+
+      const normalizedEmail = email.toLowerCase().trim();
+
+      // 1. Check existing user
+      const existingUser = await User.findOne({ email: normalizedEmail });
+      if (existingUser) {
+        return res.status(httpStatusCode.BAD_REQUEST).json({
+          success: false,
+          message: "An account with this email already exists",
+        });
+      }
+
+      // 2. Hash Password
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt);
+
+      // 3. Create Clinic Admin User (Directly Verified)
+      const newAdminUser = await User.create({
+        name: adminName || `${name} Admin`,
+        email: normalizedEmail,
+        password: hashedPassword,
+        phone: phone,
+        role: "CLINIC_ADMIN",
+        status: "ACTIVE",
+        isVerified: true, // 👈 Token generation aur verification step skip ho gaya
       });
+
+      // 4. Create Clinic Tenant & Map Owner
+      const newClinic = await Clinic.create({
+        name,
+        email: normalizedEmail,
+        phone,
+        city,
+        address,
+        ownerId: newAdminUser._id,
+        subscriptionPlan: subscriptionPlan || null,
+        status: "APPROVED",
+      });
+
+      // 5. Optional: Send Welcome/Credentials Email (Background notification)
+      try {
+        if (emailService.sendWelcomeEmail) {
+          await emailService.sendWelcomeEmail(normalizedEmail, password);
+        }
+      } catch (mailErr) {
+        console.warn(
+          "Welcome email failed, but clinic created:",
+          mailErr.message,
+        );
+      }
 
       return res.status(httpStatusCode.CREATED).json({
         success: true,
-        message: "Clinic onboarded successfully",
-        data: newClinic,
+        message: "Clinic onboarded successfully. Admin can log in immediately.",
+        data: {
+          clinic: newClinic,
+          adminUser: {
+            id: newAdminUser._id,
+            name: newAdminUser.name,
+            email: newAdminUser.email,
+            role: newAdminUser.role,
+          },
+        },
       });
     } catch (err) {
+      console.error("Onboard Clinic Error:", err);
       return res.status(httpStatusCode.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: err.message,
+        message: err.message || "Internal Server Error",
       });
     }
   }

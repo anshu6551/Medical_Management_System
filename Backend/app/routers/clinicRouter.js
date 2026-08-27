@@ -3,6 +3,7 @@ const router = express.Router();
 const clinicAdminController = require('../controllers/clinicAdminController');
 const AuthCheck = require('../middlewares/AuthMiddleware');
 const authorizeRoles = require('../middlewares/RoleMiddleware');
+const uploads = require('../utils/fileUpload')
 
 // Security Middlewares Applied
 router.use(AuthCheck);
@@ -20,8 +21,17 @@ router.get('/doctors', (req, res, next) => {
   clinicAdminController.getClinicDoctors(req, res, next);
 });
 
-router.post('/doctors', (req, res, next) => {
-  // #swagger.tags = ['Clinic Admin']
+// 👇 Multer single upload added here matching the field name 'profileImage'
+router.post('/doctors', uploads.single('profileImage'), (req, res, next) => {
+  /* #swagger.tags = ['Clinic Admin']
+     #swagger.consumes = ['multipart/form-data']
+     #swagger.parameters['profileImage'] = {
+        in: 'formData',
+        type: 'file',
+        required: true,
+        description: 'Doctor profile picture'
+     }
+  */
   clinicAdminController.addDoctor(req, res, next);
 });
 

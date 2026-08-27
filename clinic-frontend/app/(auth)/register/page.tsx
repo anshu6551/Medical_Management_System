@@ -42,6 +42,13 @@ export default function RegisterPage() {
     password: '',
   });
 
+  const [error,setError] = useState({
+    name:"",
+    email:"",
+    phone:"",
+    password:""
+  })
+
   // Snackbar Toast Notification State
   const [snackbar, setSnackbar] = useState({
     open: false,
@@ -53,8 +60,53 @@ export default function RegisterPage() {
     setSnackbar((prev) => ({ ...prev, open: false }));
   };
 
+  // form validation function
+
+  const formValidation  = (formData)=>{
+
+    let nameErr = ""
+    let emailErr = ""
+    let phoneErr = ""
+    let passwordErr = ""
+
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/
+    const phoneRegex = /^\+?[0-9\s\-()]{7,20}$/
+
+    if( !formData.name || formData.name.trim() === ""){
+       nameErr = "please enter your full name"
+    }
+
+    if(!formData.email || formData.email.trim() === "" || !emailRegex.test(formData.email)){
+      emailErr = "please enter a valid email address"
+    }
+
+    if(!formData.phone || formData.phone.trim() === "" || !phoneRegex.test(formData.phone)){
+      phoneErr = "please enter a valid phone number"
+    }
+
+    if(!formData.password || formData.password.trim() === "" || !passwordRegex.test(formData.password)){
+      passwordErr = "password must be at least 8 characters long and include uppercase, lowercase, number, and special character"
+    }
+
+    setError({
+      name: nameErr,
+      email: emailErr,
+      phone: phoneErr,
+      password: passwordErr
+    })
+
+    return !(nameErr || emailErr || phoneErr || passwordErr)
+
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+   
+    if(!formValidation(formData)){
+      return ;
+    }
+
     setLoading(true);
 
     try {
@@ -140,7 +192,7 @@ export default function RegisterPage() {
                   mb: 0.5,
                 }}
               >
-                Medi<span style={{ color: '#83C5BE' }}>Pulse</span>
+                Life<span style={{ color: '#4F46E5' }}>Spire</span>
               </Typography>
               <Typography variant="body2" sx={{ color: '#CBD5E1', fontSize: '0.875rem', mb: "20px" }}>
                 Create your account to get started
@@ -198,6 +250,8 @@ export default function RegisterPage() {
                     placeholder="John Doe"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    error = {!!error.name}
+                    helperText = {error.name}
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">
@@ -231,6 +285,8 @@ export default function RegisterPage() {
                     placeholder="name@example.com"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    error = {!!error.email}
+                    helperText = {error.email}
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">
@@ -263,6 +319,8 @@ export default function RegisterPage() {
                     placeholder="+91 98765 43210"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    error = {!!error.phone}
+                    helperText = {error.phone}
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">
@@ -296,6 +354,8 @@ export default function RegisterPage() {
                     placeholder="••••••••"
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    error = {!!error.password}
+                    helperText = {error.password}
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">

@@ -1,5 +1,8 @@
 import axios from 'axios';
 
+
+
+// 
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1',
   headers: {
@@ -14,7 +17,7 @@ const getTokenFromCookie = () => {
   return match ? decodeURIComponent(match[2]) : null;
 };
 
-// Automatic Bearer Token Interceptor
+// Automatic Bearer Token Interceptor 
 api.interceptors.request.use(
   (config) => {
     if (typeof window !== 'undefined') {
@@ -30,5 +33,6 @@ api.interceptors.request.use(
   },
   (error) => Promise.reject(error)
 );
+
 
 export default api;

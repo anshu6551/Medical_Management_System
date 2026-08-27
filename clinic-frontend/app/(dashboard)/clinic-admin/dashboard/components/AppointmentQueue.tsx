@@ -216,7 +216,7 @@ export default function AppointmentQueue() {
 
                   {/* Slot Time */}
                   <TableCell sx={{ color: '#CBD5E1' }}>
-                    {row.slotTime || '10:00 AM'}
+                    {row?.timeSlot}
                   </TableCell>
 
                   {/* Dynamic Status Chip */}

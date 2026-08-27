@@ -161,7 +161,10 @@
                   "address": {
                     "example": "any"
                   },
-                  "ownerId": {
+                  "password": {
+                    "example": "any"
+                  },
+                  "adminName": {
                     "example": "any"
                   },
                   "subscriptionPlan": {
@@ -438,6 +441,17 @@
           "Clinic Admin"
         ],
         "description": "",
+        "parameters": [
+          {
+            "name": "profileImage",
+            "in": "formData",
+            "required": true,
+            "description": "Doctor profile picture",
+            "schema": {
+              "type": "file"
+            }
+          }
+        ],
         "responses": {
           "401": {
             "description": "Unauthorized"
@@ -449,6 +463,9 @@
               "schema": {
                 "type": "object",
                 "properties": {
+                  "profileImage": {
+                    "example": "any"
+                  },
                   "name": {
                     "example": "any"
                   },
@@ -930,6 +947,27 @@
       }
     },
     "/doctor/appointments/{appointmentId}/prescription": {
+      "get": {
+        "tags": [
+          "Doctor Portal"
+        ],
+        "description": "",
+        "parameters": [
+          {
+            "name": "appointmentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      },
       "put": {
         "tags": [
           "Doctor Portal"

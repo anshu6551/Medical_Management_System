@@ -63,7 +63,7 @@ export default function ClinicAdminLayout({ children }: { children: React.ReactN
         }}
       >
         <Typography variant="h6" sx={{ fontWeight: 900, letterSpacing: '-0.5px', color: '#FFFFFF' }}>
-          Medi<span style={{ color: '#83C5BE' }}>Pulse</span>
+          Life<span style={{ color: '#4F46E5' }}>Spire</span>
         </Typography>
         <Chip label="Clinic Admin" size="small" sx={{ bgcolor: 'rgba(131, 197, 190, 0.15)', color: '#83C5BE', fontWeight: 700, fontSize: '0.65rem' }} />
       </Box>

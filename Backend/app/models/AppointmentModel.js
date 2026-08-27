@@ -24,6 +24,20 @@ const appointmentSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    // --- Prescription & Consultation Data ---
+    diagnosis: {
+      type: String,
+      default: "",
+    },
+    doctorAdvice: {
+      type: String,
+      default: "",
+    },
+    medicines: {
+      type: mongoose.Schema.Types.Mixed, // Allows Strings or Arrays of medicines
+      default: [],
+    },
+    
     timeSlot: {
       type: String,
       required: true,

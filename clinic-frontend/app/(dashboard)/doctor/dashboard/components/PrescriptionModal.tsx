@@ -35,14 +35,11 @@ export default function PrescriptionModal({
   const [loading, setLoading] = useState(false);
 
   const dialogSx = {
-    bgcolor: '#1E293B',
-    color: '#FFFFFF',
-    borderRadius: '16px',
-    border: '1px solid #334155',
+
   };
 
   const inputStyle = {
-    color: '#FFFFFF',
+    color: '#1E293B',
     bgcolor: 'rgba(255,255,255,0.05)',
     borderRadius: '10px',
   };
@@ -75,7 +72,15 @@ export default function PrescriptionModal({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="md" PaperProps={{ sx: dialogSx }}>
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="md" PaperProps={{
+    sx: {
+      bgcolor: '#1E293B',
+      color: '#FFFFFF',
+      borderRadius: '16px',
+      border: '1px solid #334155',
+      backgroundImage: 'none', // Prevents MUI dark mode elevation overlay
+    },
+  }}>
       <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 3, pt: 2.5 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <DescriptionOutlined sx={{ color: '#83C5BE' }} />

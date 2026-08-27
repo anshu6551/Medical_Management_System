@@ -7,16 +7,28 @@ class DoctorController {
   // Helper: Resolve Doctor ID from logged-in User
   async _resolveDoctorId(req) {
     let doctorId = req.params?.doctorId || req.query?.doctorId || req.user?.doctorId;
-    if (!doctorId && req.user?._id) {
-      const doctor = await Doctor.findOne({ userId: req.user._id });
-      if (doctor) doctorId = doctor._id;
+
+    // 1. If doctorId is directly in req.user
+    if (doctorId && mongoose.Types.ObjectId.isValid(doctorId)) {
+      const doc = await Doctor.findById(doctorId);
+      if (doc) return doc._id;
     }
-    // Fallback for development/testing
-    if (!doctorId) {
-      const firstDoc = await Doctor.findOne();
-      if (firstDoc) doctorId = firstDoc._id;
+
+    // 2. Resolve via userId
+    const userId = req.user?._id || req.user?.id || req.user?.userId;
+    if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+      // Direct Doctor record check
+      const doctorByUserId = await Doctor.findOne({ userId });
+      if (doctorByUserId) return doctorByUserId._id;
+
+      // In case _id in token is already the Doctor document ID
+      const doctorById = await Doctor.findById(userId);
+      if (doctorById) return doctorById._id;
     }
-    return doctorId;
+
+    // 3. Fallback for development/testing
+    const firstDoc = await Doctor.findOne();
+    return firstDoc ? firstDoc._id : null;
   }
 
   // ==========================================
@@ -47,13 +59,23 @@ class DoctorController {
         .sort({ slotTime: 1, createdAt: 1 });
 
       // Fallback: If today is empty in testing, show recent appointments
-      const list = todayAppointments.length > 0 
-        ? todayAppointments 
-        : await Appointment.find({ doctorId }).populate('patientId', 'name email phone age gender bloodGroup').sort({ createdAt: -1 }).limit(10);
+      const list =
+        todayAppointments.length > 0
+          ? todayAppointments
+          : await Appointment.find({ doctorId })
+              .populate('patientId', 'name email phone age gender bloodGroup')
+              .sort({ createdAt: -1 })
+              .limit(10);
 
       // Calculate Stats
       const totalBookings = list.length;
-      const waiting = list.filter((a) => a.status === 'PENDING' || a.status === 'CONFIRMED' || a.status === 'WAITING').length;
+      const waiting = list.filter(
+        (a) =>
+          a.status === 'PENDING' ||
+          a.status === 'CONFIRMED' ||
+          a.status === 'WAITING' ||
+          a.status === 'IN_PROGRESS'
+      ).length;
       const completed = list.filter((a) => a.status === 'COMPLETED').length;
 
       return res.status(httpStatusCode.OK).json({
@@ -65,17 +87,28 @@ class DoctorController {
             completedVisits: completed,
             avgRating: 4.8,
           },
-          queue: list.map((apt, index) => ({
-            _id: apt._id,
-            tokenId: apt.appointmentId || `APT-${101 + index}`,
-            patientName: apt.patientId?.name || 'Walk-in Patient',
-            patientAge: apt.patientId?.age || 28,
-            patientGender: apt.patientId?.gender || 'Male',
-            slotTime: apt.slotTime || apt.timeSlot || '10:30 AM',
-            visitType: apt.type || 'General Checkup',
-            status: apt.status || 'WAITING',
-            notes: apt.notes || '',
-          })),
+          queue: list.map((apt, index) => {
+            const rawStatus = (apt.status || 'WAITING').toUpperCase().replace(/[\s-]/g, '_');
+            return {
+              id: apt._id,
+              _id: apt._id,
+              tokenId: apt.appointmentId || `APT-${101 + index}`,
+              patientName: apt.patientId?.name || 'Walk-in Patient',
+              patientPhone: apt.patientId?.phone || '',
+              patientAge: apt.patientId?.age || 28,
+              patientGender: apt.patientId?.gender || 'Male',
+              slotTime: apt.slotTime || apt.timeSlot || '10:30 AM',
+              timeSlot: apt.slotTime || apt.timeSlot || '10:30 AM',
+              visitType: apt.type || 'General Checkup',
+              type: apt.type || 'General Checkup',
+              status: rawStatus, // Always returns uppercase normalized status: IN_PROGRESS / CONFIRMED / COMPLETED
+              rawStatus: rawStatus,
+              diagnosis: apt.diagnosis || '',
+              medicines: apt.medicines || [],
+              advice: apt.doctorAdvice || '',
+              notes: apt.notes || '',
+            };
+          }),
         },
       });
     } catch (error) {
@@ -87,21 +120,30 @@ class DoctorController {
     }
   }
 
-  // Update Status (e.g. Call Patient -> In Progress, Complete Consultation)
+  // Update Status (e.g. Call Patient -> IN_PROGRESS, Complete Consultation)
   async updateQueueStatus(req, res) {
     try {
       const { appointmentId } = req.params;
       const { status } = req.body;
 
+      const normalizedStatus = (status || 'IN_PROGRESS').toUpperCase().replace(/[\s-]/g, '_');
+
       const updated = await Appointment.findByIdAndUpdate(
         appointmentId,
-        { $set: { status } },
+        { $set: { status: normalizedStatus } },
         { new: true }
       );
 
+      if (!updated) {
+        return res.status(httpStatusCode.NOT_FOUND).json({
+          success: false,
+          message: 'Appointment not found',
+        });
+      }
+
       return res.status(httpStatusCode.OK).json({
         success: true,
-        message: `Appointment status changed to ${status}`,
+        message: `Appointment status changed to ${normalizedStatus}`,
         data: updated,
       });
     } catch (error) {
@@ -164,8 +206,7 @@ class DoctorController {
   }
 
   // ==========================================
-  // ==========================================
-  // 3. RATINGS & PATIENT FEEDBACK (FULLY DYNAMIC)
+  // 3. RATINGS & PATIENT FEEDBACK
   // ==========================================
   async getReviews(req, res) {
     try {
@@ -174,38 +215,35 @@ class DoctorController {
       if (!doctorId) {
         return res.status(httpStatusCode.NOT_FOUND).json({
           success: false,
-          message: "Doctor profile not found",
+          message: 'Doctor profile not found',
         });
       }
 
       const docObjectId = new mongoose.Types.ObjectId(doctorId);
 
-      // 1. Fetch all appointments of this doctor that have ratings/feedback
       const ratedAppointments = await Appointment.find({
         doctorId: docObjectId,
         rating: { $exists: true, $ne: null, $gt: 0 },
       })
-        .populate("patientId", "name email")
+        .populate('patientId', 'name email')
         .sort({ updatedAt: -1, createdAt: -1 });
 
       const totalReviews = ratedAppointments.length;
 
-      // 2. Fallback if no reviews are in DB yet (clean default values)
       if (totalReviews === 0) {
         return res.status(httpStatusCode.OK).json({
           success: true,
           data: {
             overallRating: 5.0,
-            recommendationScore: "100%",
+            recommendationScore: '100%',
             totalReviews: 0,
             reviews: [],
           },
         });
       }
 
-      // 3. Dynamic Aggregation: Calculate Average Rating & Positive Score
       let totalRatingSum = 0;
-      let positiveRatingCount = 0; // Ratings 4 and 5 count as positive
+      let positiveRatingCount = 0;
 
       const formattedReviews = ratedAppointments.map((apt) => {
         const rating = Number(apt.rating) || 5;
@@ -216,25 +254,22 @@ class DoctorController {
         }
 
         const dateObj = apt.reviewDate || apt.updatedAt || apt.createdAt || new Date();
-        const formattedDate = new Date(dateObj).toLocaleDateString("en-GB", {
-          day: "2-digit",
-          month: "short",
-          year: "numeric",
-        }); // e.g. "10 Aug 2026"
+        const formattedDate = new Date(dateObj).toLocaleDateString('en-GB', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+        });
 
         return {
           _id: apt._id,
-          patientName: apt.patientId?.name || "Verified Patient",
+          patientName: apt.patientId?.name || 'Verified Patient',
           rating: rating,
           date: formattedDate,
-          comment: apt.reviewComment || apt.feedback || "Consultation was smooth and satisfactory.",
+          comment: apt.reviewComment || apt.feedback || 'Consultation was smooth and satisfactory.',
         };
       });
 
-      // Overall Average Calculation (e.g. 4.8)
       const overallRating = Number((totalRatingSum / totalReviews).toFixed(1));
-
-      // Positive Recommendation % Calculation (e.g. (96 / 100) * 100 = 96%)
       const positivePercent = Math.round((positiveRatingCount / totalReviews) * 100);
       const recommendationScore = `${positivePercent}%`;
 
@@ -248,27 +283,36 @@ class DoctorController {
         },
       });
     } catch (error) {
-      console.error("Get Dynamic Reviews Error:", error);
+      console.error('Get Dynamic Reviews Error:', error);
       return res.status(httpStatusCode.INTERNAL_SERVER_ERROR).json({
         success: false,
-        message: error.message || "Internal Server Error",
+        message: error.message || 'Internal Server Error',
       });
     }
   }
 
-  // Save Prescription and Complete Consultation
+  // ==========================================
+  // 4. PRESCRIPTION HANDLERS
+  // ==========================================
   async savePrescription(req, res) {
     try {
       const { appointmentId } = req.params;
-      const { diagnosis, medicines, advice } = req.body;
+      const { diagnosis, medicines, advice } = req.body || {};
+
+      let formattedMedicines = medicines;
+      if (typeof medicines === 'string') {
+        formattedMedicines = medicines.includes('\n')
+          ? medicines.split('\n').map((m) => m.trim()).filter(Boolean)
+          : medicines.split(',').map((m) => m.trim()).filter(Boolean);
+      }
 
       const updatedAppointment = await Appointment.findByIdAndUpdate(
         appointmentId,
         {
           $set: {
-            diagnosis,
-            medicines,
-            doctorAdvice: advice,
+            diagnosis: diagnosis || '',
+            medicines: formattedMedicines || [],
+            doctorAdvice: advice || '',
             status: 'COMPLETED',
             paymentStatus: 'Paid',
           },
@@ -290,6 +334,53 @@ class DoctorController {
       });
     } catch (error) {
       console.error('Save Prescription Error:', error);
+      return res.status(httpStatusCode.INTERNAL_SERVER_ERROR).json({
+        success: false,
+        message: error.message || 'Internal Server Error',
+      });
+    }
+  }
+
+  async getPrescription(req, res) {
+    try {
+      const appointmentId = req.params?.appointmentId || req.query?.appointmentId;
+
+      if (!appointmentId) {
+        return res.status(httpStatusCode.BAD_REQUEST).json({
+          success: false,
+          message: 'Appointment ID is required to fetch prescription',
+        });
+      }
+
+      const appointment = await Appointment.findById(appointmentId)
+        .populate('patientId', 'name email phone age gender bloodGroup')
+        .populate({
+          path: 'doctorId',
+          populate: { path: 'userId', select: 'name email' },
+        });
+
+      if (!appointment) {
+        return res.status(httpStatusCode.NOT_FOUND).json({
+          success: false,
+          message: 'Appointment not found',
+        });
+      }
+
+      return res.status(httpStatusCode.OK).json({
+        success: true,
+        data: {
+          appointmentId: appointment._id,
+          patient: appointment.patientId,
+          doctor: appointment.doctorId,
+          diagnosis: appointment.diagnosis || '',
+          medicines: appointment.medicines || [],
+          advice: appointment.doctorAdvice || '',
+          status: appointment.status,
+          date: appointment.appointmentDate,
+        },
+      });
+    } catch (error) {
+      console.error('Get Prescription Error:', error);
       return res.status(httpStatusCode.INTERNAL_SERVER_ERROR).json({
         success: false,
         message: error.message || 'Internal Server Error',

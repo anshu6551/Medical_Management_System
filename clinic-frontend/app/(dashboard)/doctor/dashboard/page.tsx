@@ -33,15 +33,29 @@ export default function DoctorDashboard() {
           avgRating: 4.8,
         });
 
-        // Format backend appointments to QueueItem format
-        const formattedQueue = (res.data.data.queue || []).map((item: any) => ({
-          id: item._id || item.id,
-          tokenId: item.tokenId || 'APT-101',
-          patientName: item.patientName || 'Patient',
-          timeSlot: item.slotTime || item.timeSlot || '10:30 AM',
-          type: item.visitType || item.type || 'General Checkup',
-          status: item.status === 'COMPLETED' ? 'Completed' : item.status === 'IN_PROGRESS' ? 'In Progress' : 'Waiting',
-        }));
+        // Format backend appointments to QueueItem format with robust normalization
+        const formattedQueue: QueueItem[] = (res.data.data.queue || []).map((item: any) => {
+          const rawStatus = (item.status || item.rawStatus || '').toUpperCase().replace(/[\s-]/g, '_');
+          
+          let displayStatus = 'Waiting';
+          if (rawStatus === 'COMPLETED') {
+            displayStatus = 'Completed';
+          } else if (rawStatus === 'IN_PROGRESS') {
+            displayStatus = 'In Progress';
+          } else if (rawStatus === 'CONFIRMED' || rawStatus === 'BOOKED') {
+            displayStatus = 'Confirmed';
+          }
+
+          return {
+            id: item._id || item.id,
+            tokenId: item.tokenId || (item.appointmentId ? `APT-${item.appointmentId.replace('APT-', '')}` : 'APT-101'),
+            patientName: item.patientName || 'Patient',
+            timeSlot: item.slotTime || item.timeSlot || '10:30 AM',
+            type: item.visitType || item.type || 'General Checkup',
+            status: displayStatus,
+            rawStatus: rawStatus,
+          };
+        });
 
         setQueue(formattedQueue);
       }
@@ -99,7 +113,7 @@ export default function DoctorDashboard() {
 
         {/* 4 Stats Cards */}
         <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={12} sm={3} size={{ xs: 12, sm: 3 }}>
+          <Grid item xs={12} sm={3}>
             <Paper sx={{ p: 2.5, bgcolor: '#1E293B', border: '1px solid #334155', borderRadius: '16px' }}>
               <Typography variant="caption" sx={{ color: '#94A3B8', fontWeight: 600 }}>
                 TOTAL BOOKINGS TODAY
@@ -109,7 +123,7 @@ export default function DoctorDashboard() {
               </Typography>
             </Paper>
           </Grid>
-          <Grid item xs={12} sm={3} size={{ xs: 12, sm: 3 }}>
+          <Grid item xs={12} sm={3}>
             <Paper sx={{ p: 2.5, bgcolor: '#1E293B', border: '1px solid #334155', borderRadius: '16px' }}>
               <Typography variant="caption" sx={{ color: '#FBBF24', fontWeight: 600 }}>
                 WAITING IN OPD
@@ -119,7 +133,7 @@ export default function DoctorDashboard() {
               </Typography>
             </Paper>
           </Grid>
-          <Grid item xs={12} sm={3} size={{ xs: 12, sm: 3 }}>
+          <Grid item xs={12} sm={3}>
             <Paper sx={{ p: 2.5, bgcolor: '#1E293B', border: '1px solid #334155', borderRadius: '16px' }}>
               <Typography variant="caption" sx={{ color: '#4ADE80', fontWeight: 600 }}>
                 COMPLETED VISITS
@@ -129,7 +143,7 @@ export default function DoctorDashboard() {
               </Typography>
             </Paper>
           </Grid>
-          <Grid item xs={12} sm={3} size={{ xs: 12, sm: 3 }}>
+          <Grid item xs={12} sm={3}>
             <Paper sx={{ p: 2.5, bgcolor: '#1E293B', border: '1px solid #334155', borderRadius: '16px' }}>
               <Typography variant="caption" sx={{ color: '#83C5BE', fontWeight: 600 }}>
                 AVG PATIENT RATING
@@ -146,7 +160,7 @@ export default function DoctorDashboard() {
 
         {/* Live Queue & Patient Feedback Row */}
         <Grid container spacing={3}>
-          <Grid item xs={12} lg={8} size={{ xs: 12, sm: 8 }}>
+          <Grid item xs={12} lg={8}>
             {loading ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', p: 6 }}>
                 <CircularProgress sx={{ color: '#83C5BE' }} />
@@ -163,7 +177,7 @@ export default function DoctorDashboard() {
             )}
           </Grid>
 
-          <Grid item xs={12} lg={4} size={{ xs: 12, sm: 4 }}>
+          <Grid item xs={12} lg={4}>
             <Paper sx={{ p: 3, bgcolor: '#1E293B', border: '1px solid #334155', borderRadius: '20px' }}>
               <Typography variant="h6" sx={{ fontWeight: 800, color: '#FFFFFF', mb: 0.5 }}>
                 Recent Patient Feedback
@@ -184,7 +198,7 @@ export default function DoctorDashboard() {
                     <Rating value={5} readOnly size="small" />
                   </Box>
                   <Typography variant="caption" sx={{ color: '#CBD5E1', display: 'block' }}>
-                    "Dr. Roy diagnosed my fever accurately and explained the dosage clearly. Very polite!"
+                    &quot;Dr. Roy diagnosed my fever accurately and explained the dosage clearly. Very polite!&quot;
                   </Typography>
                 </Paper>
 
@@ -201,7 +215,7 @@ export default function DoctorDashboard() {
                     <Rating value={4} readOnly size="small" />
                   </Box>
                   <Typography variant="caption" sx={{ color: '#CBD5E1', display: 'block' }}>
-                    "Quick OPD queue management and instant e-prescription."
+                    &quot;Quick OPD queue management and instant e-prescription.&quot;
                   </Typography>
                 </Paper>
               </Stack>

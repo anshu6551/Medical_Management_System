@@ -1,5 +1,7 @@
+
 'use client';
-import React, { useState, useEffect, Suspense } from 'react';
+
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import {
   Container,
   Typography,
@@ -33,6 +35,10 @@ function LoginForm() {
 
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState({
+    email: '',
+    password: '',
+  });
 
   // Snackbar Notification States
   const [snackbar, setSnackbar] = useState({
@@ -48,7 +54,11 @@ function LoginForm() {
   // Exact Query Param Cleaner
   const parseRole = (param: string | null) => {
     if (!param) return 'clinic-admin';
-    const clean = decodeURIComponent(param).trim().toLowerCase().replace('_', '-').replace(/\s+/g, '-');
+    const clean = decodeURIComponent(param)
+      .trim()
+      .toLowerCase()
+      .replace(/_/g, '-')
+      .replace(/\s+/g, '-');
     if (['super-admin', 'clinic-admin', 'doctor', 'patient'].includes(clean)) {
       return clean;
     }
@@ -58,7 +68,7 @@ function LoginForm() {
   const [role, setRole] = useState(() => parseRole(searchParams.get('role')));
   const [formData, setFormData] = useState({ email: '', password: '' });
 
-  // Sync state whenever URL query params change
+  // Sync state whenever URL role query param changes
   useEffect(() => {
     const currentParam = searchParams.get('role');
     if (currentParam) {
@@ -66,8 +76,54 @@ function LoginForm() {
     }
   }, [searchParams]);
 
+  // Form Validation
+  const formValidation = (data = formData): boolean => {
+    let emailerr = '';
+    let passworderr = '';
+
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    const passwordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+
+    if (!data.email || !emailRegex.test(data.email)) {
+      emailerr = 'Please enter a valid email address';
+    }
+    if (!data.password || !passwordRegex.test(data.password)) {
+      passworderr =
+        'Password must be at least 8 characters long and include uppercase, lowercase, number, and special character';
+    }
+
+    setError({ email: emailerr, password: passworderr });
+    return !emailerr && !passworderr;
+  };
+
+  // Handle Token Verification (Fixed double-execution with useRef)
+  const verified = searchParams.get('verified');
+  const errorParam = searchParams.get('error');
+
+  useEffect(() => {
+    if (verified === 'true') {
+      setSnackbar({
+        open: true,
+        message: 'Email verified successfully! You can now log in.',
+        severity: 'success',
+      });
+    } else if (errorParam) {
+      setSnackbar({
+        open: true,
+        message: 'Verification link expired or invalid.',
+        severity: 'error',
+      });
+    }
+  }, [verified, errorParam]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!formValidation(formData)) {
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -77,33 +133,37 @@ function LoginForm() {
         password: formData.password,
       });
 
-      // 2. Exact destructuring as per response JSON structure
+      // 2. Response Destructuring
       const token = res.data.token || res.data.data?.token;
       const user = res.data.data?.user || res.data.data || res.data.user;
 
       if (!token || !user) {
-        throw new Error("Invalid response structure from server");
+        throw new Error('Invalid response structure from server');
       }
 
       // 3. Role Validation Check
-      const formattedSelectedRole = role.replace('-', '_').toUpperCase(); // "super-admin" -> "SUPER_ADMIN"
+      const formattedSelectedRole = role.replace(/-/g, '_').toUpperCase();
       if (user.role !== formattedSelectedRole) {
         setSnackbar({
           open: true,
-          message: `Unauthorized: Your account does not have access to the ${role.replace('-', ' ')} portal.`,
+          message: `Unauthorized: Your account does not have access to the ${role.replace(
+            /-/g,
+            ' '
+          )} portal.`,
           severity: 'error',
         });
         setLoading(false);
         return;
       }
 
-      // 4. LocalStorage Sync Write
+      // 4. LocalStorage & Cookies Sync
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
 
-      // 4.1. Cookies Set (Middleware & Server Component Sync)
       document.cookie = `token=${token}; path=/; max-age=86400; SameSite=Lax`;
-      document.cookie = `user=${encodeURIComponent(JSON.stringify(user))}; path=/; max-age=86400; SameSite=Lax`;
+      document.cookie = `user=${encodeURIComponent(
+        JSON.stringify(user)
+      )}; path=/; max-age=86400; SameSite=Lax`;
 
       setSnackbar({
         open: true,
@@ -111,10 +171,10 @@ function LoginForm() {
         severity: 'success',
       });
 
-      // 5. Dynamic Safe Redirect with Token Guarantee
+      // 5. Dynamic Redirect
       setTimeout(() => {
-        router.refresh(); // Refresh Next.js Auth Context before pushing route
-        
+        router.refresh();
+
         switch (user.role) {
           case 'SUPER_ADMIN':
             router.push('/super-admin/dashboard');
@@ -133,7 +193,10 @@ function LoginForm() {
         }
       }, 300);
     } catch (err: any) {
-      const msg = err.response?.data?.message || err.message || 'Invalid email or password. Please try again.';
+      const msg =
+        err.response?.data?.message ||
+        err.message ||
+        'Invalid email or password. Please try again.';
       setSnackbar({
         open: true,
         message: msg,
@@ -157,7 +220,12 @@ function LoginForm() {
         }}
       >
         {/* Top Accent Bar */}
-        <Box sx={{ height: 4, background: 'linear-gradient(90deg, #006D77 0%, #83C5BE 100%)' }} />
+        <Box
+          sx={{
+            height: 4,
+            background: 'linear-gradient(90deg, #006D77 0%, #83C5BE 100%)',
+          }}
+        />
 
         <CardContent sx={{ p: { xs: 3.5, sm: 4 } }}>
           {/* Header */}
@@ -176,24 +244,32 @@ function LoginForm() {
                 mb: 0.5,
               }}
             >
-              Medi<span style={{ color: '#83C5BE' }}>Pulse</span>
+              Life<span style={{ color: '#4F46E5' }}>Spire</span>
             </Typography>
-            <Typography variant="body2" sx={{ color: '#CBD5E1', fontSize: '0.875rem', mb: '20px' }}>
+            <Typography
+              variant="body2"
+              sx={{ color: '#CBD5E1', fontSize: '0.875rem', mb: '20px' }}
+            >
               Sign in to access your dashboard
             </Typography>
           </Box>
 
           <Box component="form" onSubmit={handleSubmit}>
             <Stack spacing={2.5}>
-              {/* Custom Select with matched values */}
+              {/* Role Dropdown */}
               <Box display="flex" flexDirection="column" gap={0.8}>
-                <Typography variant="caption" sx={{ color: '#CBD5E1', fontWeight: 600, fontSize: '0.825rem' }}>
+                <Typography
+                  variant="caption"
+                  sx={{ color: '#CBD5E1', fontWeight: 600, fontSize: '0.825rem' }}
+                >
                   Select Access Role
                 </Typography>
                 <Box
                   component="select"
                   value={role}
-                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setRole(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                    setRole(e.target.value)
+                  }
                   sx={{
                     width: '100%',
                     height: '46px',
@@ -225,7 +301,10 @@ function LoginForm() {
 
               {/* Email Address */}
               <Box display="flex" flexDirection="column" gap={0.8}>
-                <Typography variant="caption" sx={{ color: '#CBD5E1', fontWeight: 600, fontSize: '0.825rem' }}>
+                <Typography
+                  variant="caption"
+                  sx={{ color: '#CBD5E1', fontWeight: 600, fontSize: '0.825rem' }}
+                >
                   Email Address
                 </Typography>
                 <TextField
@@ -234,11 +313,17 @@ function LoginForm() {
                   type="email"
                   placeholder="name@example.com"
                   value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, email: e.target.value })
+                  }
+                  error={!!error.email}
+                  helperText={error.email}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <EmailOutlined sx={{ color: '#83C5BE', fontSize: 20 }} />
+                        <EmailOutlined
+                          sx={{ color: '#83C5BE', fontSize: 20 }}
+                        />
                       </InputAdornment>
                     ),
                   }}
@@ -248,7 +333,9 @@ function LoginForm() {
                       borderRadius: '12px',
                       bgcolor: 'rgba(255, 255, 255, 0.06)',
                       height: '46px',
-                      '& fieldset': { borderColor: 'rgba(255, 255, 255, 0.2)' },
+                      '& fieldset': {
+                        borderColor: 'rgba(255, 255, 255, 0.2)',
+                      },
                       '&:hover fieldset': { borderColor: '#83C5BE' },
                       '&.Mui-focused fieldset': { borderColor: '#83C5BE' },
                     },
@@ -258,7 +345,10 @@ function LoginForm() {
 
               {/* Password */}
               <Box display="flex" flexDirection="column" gap={0.8}>
-                <Typography variant="caption" sx={{ color: '#CBD5E1', fontWeight: 600, fontSize: '0.825rem' }}>
+                <Typography
+                  variant="caption"
+                  sx={{ color: '#CBD5E1', fontWeight: 600, fontSize: '0.825rem' }}
+                >
                   Password
                 </Typography>
                 <TextField
@@ -267,7 +357,11 @@ function LoginForm() {
                   type={showPassword ? 'text' : 'password'}
                   placeholder="••••••••"
                   value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, password: e.target.value })
+                  }
+                  error={!!error.password}
+                  helperText={error.password}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
@@ -276,8 +370,16 @@ function LoginForm() {
                     ),
                     endAdornment: (
                       <InputAdornment position="end">
-                        <IconButton onClick={() => setShowPassword(!showPassword)} edge="end" sx={{ color: '#CBD5E1' }}>
-                          {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                        <IconButton
+                          onClick={() => setShowPassword(!showPassword)}
+                          edge="end"
+                          sx={{ color: '#CBD5E1' }}
+                        >
+                          {showPassword ? (
+                            <VisibilityOff fontSize="small" />
+                          ) : (
+                            <Visibility fontSize="small" />
+                          )}
                         </IconButton>
                       </InputAdornment>
                     ),
@@ -288,7 +390,9 @@ function LoginForm() {
                       borderRadius: '12px',
                       bgcolor: 'rgba(255, 255, 255, 0.06)',
                       height: '46px',
-                      '& fieldset': { borderColor: 'rgba(255, 255, 255, 0.2)' },
+                      '& fieldset': {
+                        borderColor: 'rgba(255, 255, 255, 0.2)',
+                      },
                       '&:hover fieldset': { borderColor: '#83C5BE' },
                       '&.Mui-focused fieldset': { borderColor: '#83C5BE' },
                     },
@@ -296,19 +400,24 @@ function LoginForm() {
                 />
               </Box>
 
-              {/* Forgot Password Link */}
+              {/* Forgot Password */}
               <Box display="flex" justifyContent="flex-end">
                 <Typography
                   component={Link}
                   href="/forgot-password"
                   variant="caption"
-                  sx={{ color: '#83C5BE', textDecoration: 'none', fontWeight: 600, '&:hover': { textDecoration: 'underline' } }}
+                  sx={{
+                    color: '#83C5BE',
+                    textDecoration: 'none',
+                    fontWeight: 600,
+                    '&:hover': { textDecoration: 'underline' },
+                  }}
                 >
                   Forgot Password?
                 </Typography>
               </Box>
 
-              {/* Sign In Button */}
+              {/* Submit Button */}
               <Button
                 type="submit"
                 fullWidth
@@ -328,20 +437,34 @@ function LoginForm() {
                   '&:hover': { bgcolor: '#004D54' },
                 }}
               >
-                {loading ? <CircularProgress size={24} sx={{ color: '#FFF' }} /> : 'Sign In'}
+                {loading ? (
+                  <CircularProgress size={24} sx={{ color: '#FFF' }} />
+                ) : (
+                  'Sign In'
+                )}
               </Button>
             </Stack>
           </Box>
 
-          {/* Bottom Account Switch */}
-          <Box textAlign="center" mt="25px" pt="10px" sx={{ borderTop: '1px solid rgba(255, 255, 255, 0.12)' }}>
+          {/* Bottom Switch */}
+          <Box
+            textAlign="center"
+            mt="25px"
+            pt="10px"
+            sx={{ borderTop: '1px solid rgba(255, 255, 255, 0.12)' }}
+          >
             <Typography variant="body2" sx={{ color: '#CBD5E1' }}>
               Don't have an account?{' '}
               <Typography
                 component={Link}
                 href="/register"
                 variant="body2"
-                sx={{ color: '#83C5BE', textDecoration: 'none', fontWeight: 700, '&:hover': { textDecoration: 'underline' } }}
+                sx={{
+                  color: '#83C5BE',
+                  textDecoration: 'none',
+                  fontWeight: 700,
+                  '&:hover': { textDecoration: 'underline' },
+                }}
               >
                 Create Account
               </Typography>
@@ -350,7 +473,7 @@ function LoginForm() {
         </CardContent>
       </Card>
 
-      {/* Floating Snackbar Toast Notifications */}
+      {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={3500}
@@ -387,7 +510,9 @@ export default function LoginPage() {
       }}
     >
       <Container maxWidth="xs" disableGutters>
-        <Suspense fallback={<Typography sx={{ color: '#FFF' }}>Loading...</Typography>}>
+        <Suspense
+          fallback={<Typography sx={{ color: '#FFF' }}>Loading...</Typography>}
+        >
           <LoginForm />
         </Suspense>
       </Container>

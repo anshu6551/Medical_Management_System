@@ -74,47 +74,37 @@ class AuthController {
   // 2. VERIFY EMAIL
   
 async verifyEmail(req, res) {
-  try {
-    const { token } = req.query;
+    try {
+      const { token } = req.query;
 
-    if (!token) {
-      return res.status(httpStatusCode.BAD_REQUEST).json({
-        success: false,
-        message: "Verification token is missing",
-      });
+      if (!token) {
+        return res.redirect("http://localhost:3000/login?error=token_missing");
+      }
+
+      const user = await User.findOneAndUpdate(
+        {
+          verificationToken: token.trim(),
+          verificationTokenExpires: { $gt: Date.now() },
+        },
+        {
+          $set: { isVerified: true },
+          $unset: { verificationToken: 1, verificationTokenExpires: 1 },
+        },
+      );
+
+      if (!user) {
+        return res.redirect(
+          "http://localhost:3000/login?error=invalid_or_expired_token",
+        );
+      }
+
+      // Database update success: seedha frontend login page par bhej do
+      return res.redirect("http://localhost:3000/login?verified=true");
+    } catch (err) {
+      console.error("Verification Error:", err);
+      return res.redirect("http://localhost:3000/login?error=server_error");
     }
-
-    
-    const user = await User.findOne({
-      verificationToken: token.trim(),
-      verificationTokenExpires: { $gt: Date.now() },
-    });
-
-    if (!user) {
-      return res.status(httpStatusCode.BAD_REQUEST).json({
-        success: false,
-        message: "Invalid or expired verification token",
-      });
-    }
-
-    // Mark verified & clear token fields
-    user.isVerified = true;
-    user.verificationToken = undefined;
-    user.verificationTokenExpires = undefined;
-    await user.save();
-
-    return res.status(httpStatusCode.OK).json({
-      success: true,
-      message: "Email verified successfully! You can now log in.",
-    });
-  } catch (err) {
-    console.error("Verification Error:", err);
-    return res.status(httpStatusCode.INTERNAL_SERVER_ERROR).json({
-      success: false,
-      message: "Internal Server Error",
-    });
   }
-}
 
   // 3. LOGIN USER
   async login(req, res) {
@@ -162,14 +152,14 @@ async verifyEmail(req, res) {
         });
       }
 
-      // 🏥 Fetch Clinic if this user is a Clinic Admin or Doctor
+      // Fetch Clinic if this user is a Clinic Admin or Doctor
       let clinicId = null;
       if (user.role === "CLINIC_ADMIN") {
         const clinic = await Clinic.findOne({ ownerId: user._id });
         if (clinic) clinicId = clinic._id;
       }
 
-      // 🔐 JWT Token with User ID + Clinic ID
+      // JWT Token with User ID + Clinic ID
       const token = jwt.sign(
         {
           id: user._id,
@@ -177,7 +167,7 @@ async verifyEmail(req, res) {
           name: user.name,
           email: user.email,
           role: user.role,
-          clinicId: clinicId, // 👈 Ab token me Clinic ID pack ho gayi!
+          clinicId: clinicId, // Ab token me Clinic ID pack ho gayi
         },
         process.env.JWT_SECRET,
         { expiresIn: "1d" }
@@ -192,7 +182,7 @@ async verifyEmail(req, res) {
           email: user.email,
           role: user.role,
           phone: user.phone,
-          clinicId: clinicId, // 👈 Frontend client ko bhi mil jayega
+          clinicId: clinicId, //  Frontend client ko bhi mil jayega
         },
         token: token,
       });

@@ -44,7 +44,7 @@ export default function HeroBanner() {
           {/* Left Typography Content */}
           <Box sx={{ flex: 1, maxWidth: { md: '620px' } }}>
             <Chip
-              label="What's new • MediPulse ISO 9001 Certified →"
+              label="What's new • LifeSpire ISO 9001 Certified →"
               size="small"
               sx={{
                 bgcolor: '#FFFFFF',
@@ -83,7 +83,7 @@ export default function HeroBanner() {
                 fontWeight: 500,
               }}
             >
-              Welcome to MediPulse Medical Clinic, where we are dedicated to revolutionizing the way you experience healthcare.
+              Welcome to LifeSpire Medical Clinic, where we are dedicated to revolutionizing the way you experience healthcare.
             </Typography>
 
             <Button
@@ -125,7 +125,7 @@ export default function HeroBanner() {
             <Box
               component="img"
               src="https://images.unsplash.com/photo-1624727828489-a1e03b79bba8?q=80&w=1171&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
-              alt="MediPulse Doctor"
+              alt="LifeSpire Doctor"
               sx={{
                 width: '100%',
                 height: '100%',

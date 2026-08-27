@@ -34,6 +34,12 @@ router.get('/feedback', (req, res) => {
   doctorController.getReviews(req, res);
 });
 
+// 4. Prescriptions
+router.get('/appointments/:appointmentId/prescription', (req, res) => {
+  // #swagger.tags = ['Doctor Portal']
+  doctorController.getPrescription(req, res);
+});
+
 router.put('/appointments/:appointmentId/prescription', (req, res) => {
   // #swagger.tags = ['Doctor Portal']
   doctorController.savePrescription(req, res);

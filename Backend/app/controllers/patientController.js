@@ -48,7 +48,7 @@ class PatientController {
         availableDays: doc.availableDays || ['Monday', 'Tuesday'],
         rating: doc.rating !== undefined && doc.rating !== null ? doc.rating : 4.8,
         nextAvailableSlot: '10:30 AM',
-        profileImage: doc.userId?.profileImage || '',
+        profileImage: doc?.profileImage || doc.userId?.profileImage,
       }));
 
       return res.status(httpStatusCode.OK).json({
@@ -221,7 +221,7 @@ class PatientController {
           fee: apt.doctorId?.consultationFee
             ? `₹${apt.doctorId.consultationFee}`
             : "₹500",
-          status: statusMap[currentStatus] || "Confirmed",
+          status: apt.status,
           rawStatus: apt.status,
         };
       });

@@ -96,7 +96,7 @@ export default function DoctorLayout({ children }: { children: React.ReactNode }
         }}
       >
         <Typography variant="h6" sx={{ fontWeight: 900, letterSpacing: '-0.5px', color: '#FFFFFF' }}>
-          Medi<span style={{ color: '#83C5BE' }}>Pulse</span>
+          Life<span style={{ color: '#4F46E5' }}>Spire</span>
         </Typography>
         <Chip
           label="Doctor"

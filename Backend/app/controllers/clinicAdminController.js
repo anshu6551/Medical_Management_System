@@ -5,34 +5,45 @@ const Clinic = require("../models/ClinicModel");
 const Appointment = require("../models/AppointmentModel");
 const httpStatusCode = require("../utils/httpStatusCode");
 const bcrypt = require("bcrypt");
+const cloudinary = require('cloudinary').v2;
+
 
 class ClinicAdminController {
+
+
   // Helper: Get Clinic ID from req or database fallback
   async _resolveClinicId(req) {
     let clinicId = req.params?.clinicId || req.query?.clinicId || req.user?.clinicId || req.body?.clinicId;
+
+
+    //agr upr nahi mila , toh logged-in user ki ID se clinic table me search krte hai
+
     if (!clinicId && req.user?._id) {
       const clinic = await Clinic.findOne({ ownerId: req.user._id });
       if (clinic) clinicId = clinic._id;
     }
-    return clinicId;
+    return clinicId; //jo v valid clinic ID milti hai use return kr deta
   }
 
-  // ==========================================
-  // 1. DASHBOARD OVERVIEW & STATS
-  // ==========================================
+
+  //  DASHBOARD OVERVIEW & STATS
+
   async getDashboardOverview(req, res) {
     try {
       let clinicId = await this._resolveClinicId(req);
+
+      //agr user super admin hai aur specific ID nahi di toh db ka pahla clinic select kr leta hai
       if (!clinicId && req.user?.role === "SUPER_ADMIN") {
         const firstClinic = await Clinic.findOne();
         if (firstClinic) clinicId = firstClinic._id;
       }
 
+
       if (!clinicId) {
         return res.status(httpStatusCode.BAD_REQUEST).json({ success: false, message: "Clinic ID required" });
       }
 
-      const clinicObjectId = new mongoose.Types.ObjectId(clinicId);
+      const clinicObjectId = new mongoose.Types.ObjectId(clinicId); //cnvrt string id to objectid for agg 
 
       const startOfDay = new Date();
       startOfDay.setHours(0, 0, 0, 0);
@@ -48,7 +59,7 @@ class ClinicAdminController {
         clinicId,
         createdAt: { $gte: startOfDay, $lte: endOfDay },
       });
-      const totalPatients = (await Appointment.distinct("patientId", { clinicId })).length;
+      const totalPatients = (await Appointment.distinct("patientId", { clinicId })).length; // extract today app patients count
 
       const monthlyRevenueResult = await Appointment.aggregate([
         {
@@ -58,6 +69,7 @@ class ClinicAdminController {
             createdAt: { $gte: startOfMonth, $lte: endOfMonth },
           },
         },
+        //dr collection se join kiya taaki doctor ki fees pata chle
         {
           $lookup: {
             from: "doctors",
@@ -77,6 +89,7 @@ class ClinicAdminController {
 
       const monthlyRevenue = monthlyRevenueResult.length > 0 ? monthlyRevenueResult[0].totalRevenue : 0;
 
+      //fetch today 10 app and join patient and dr deatails(populate)
       const todayQueue = await Appointment.find({
         clinicId,
         createdAt: { $gte: startOfDay, $lte: endOfDay },
@@ -107,31 +120,96 @@ class ClinicAdminController {
     }
   }
 
-  // ==========================================
-  // 2. DOCTORS MANAGEMENT
-  // ==========================================
+
+  //  DOCTORS MANAGEMENT
+
   async addDoctor(req, res) {
     try {
-      const { name, email, password, phone, specialization, experienceYears, consultationFee, availableDays } = req.body;
+
+
+      cloudinary.config({
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+        api_key: process.env.CLOUDINARY_API_KEY,
+        api_secret: process.env.CLOUDINARY_API_SECRET,
+      });
+
+
+      const {
+        name,
+        email,
+        password,
+        phone,
+        specialization,
+        experienceYears,
+        consultationFee,
+        availableDays,
+      } = req.body;
+
       const clinicId = await this._resolveClinicId(req);
 
       if (!clinicId) {
-        return res.status(httpStatusCode.BAD_REQUEST).json({ success: false, message: "Clinic ID required" });
+        return res
+          .status(httpStatusCode.BAD_REQUEST)
+          .json({ success: false, message: "Clinic ID required" });
       }
 
-      if (!name || !email || !password || !specialization || !consultationFee) {
+      // 1. Resolve Profile Image from Cloudinary / Multer
+      let profileImage = "";
+
+      if (req.file) {
+        // If multer-storage-cloudinary is used, req.file.path already contains the Cloudinary URL.
+        // If multer.diskStorage is used, upload manually via cloudinary uploader:
+        if (req.file.path.startsWith("http")) {
+          profileImage = req.file.path;
+        } else {
+          const result = await cloudinary.uploader.upload(req.file.path, {
+            folder: "Medical_Images",
+          });
+          profileImage = result.secure_url;
+        }
+      } else if (req.body.profileImage) {
+        profileImage = req.body.profileImage;
+      }
+
+      // 2. Validate all required fields including profileImage
+      if (
+        !name ||
+        !email ||
+        !password ||
+        !specialization ||
+        !consultationFee ||
+        !profileImage
+      ) {
         return res.status(httpStatusCode.BAD_REQUEST).json({
           success: false,
-          message: "Name, email, password, specialization, and consultation fee are required",
+          message:
+            "Name, email, password, specialization, consultation fee, and profile image are required",
         });
       }
 
-      const existingUser = await User.findOne({ email: email.toLowerCase().trim() });
+      const existingUser = await User.findOne({
+        email: email.toLowerCase().trim(),
+      });
       if (existingUser) {
-        return res.status(httpStatusCode.BAD_REQUEST).json({ success: false, message: "Email already exists" });
+        return res
+          .status(httpStatusCode.BAD_REQUEST)
+          .json({ success: false, message: "Email already exists" });
       }
 
+      // 3. Handle availableDays (Agar days string/JSON format mein aaye hain, toh unhe parse karke clean array banaya)
+      let parsedDays = availableDays;
+      if (typeof availableDays === "string") {
+        try {
+          parsedDays = JSON.parse(availableDays);
+        } catch (e) {
+          parsedDays = availableDays.split(",").map((d) => d.trim());
+        }
+      }
+
+      // 4. Create User
       const hashedPassword = await bcrypt.hash(password, 10);
+
+      //User table mein doctor ka account ban rhe
       const user = await User.create({
         name,
         email: email.toLowerCase().trim(),
@@ -141,26 +219,41 @@ class ClinicAdminController {
         isVerified: true,
       });
 
+      // Phir Doctor table mein uski professional details aur profile image link kar di.
       const doctor = await Doctor.create({
         userId: user._id,
         clinicId,
         specialization,
-        experienceYears: Number(experienceYears) || 1,
+        experienceYears: Number(experienceYears) || 0,
         consultationFee: Number(consultationFee),
-        availableDays: availableDays || ["Mon", "Tue", "Wed", "Thu", "Fri"],
+        availableDays: parsedDays || [
+          "Monday",
+          "Tuesday",
+          "Wednesday",
+          "Thursday",
+          "Friday",
+        ],
+        profileImage,
       });
 
-      return res.status(httpStatusCode.CREATED).json({ success: true, message: "Doctor added successfully", data: { user, doctor } });
+      return res.status(httpStatusCode.CREATED).json({
+        success: true,
+        message: "Doctor added successfully",
+        data: { user, doctor },
+      });
     } catch (err) {
       console.error("Add Doctor Error:", err);
-      return res.status(httpStatusCode.INTERNAL_SERVER_ERROR).json({ success: false, message: err.message });
+      return res
+        .status(httpStatusCode.INTERNAL_SERVER_ERROR)
+        .json({ success: false, message: err.message });
     }
   }
 
+  //Is clinic ke saare doctors unke User data (name, email, phone, status) ke sath fetch karke return karta hai.
   async getClinicDoctors(req, res) {
     try {
       const clinicId = await this._resolveClinicId(req);
-      const doctors = await Doctor.find({ clinicId }).populate("userId", "name email phone status");
+      const doctors = await Doctor.find({ clinicId }).populate("userId", "name email phone status profileImage");
       return res.status(httpStatusCode.OK).json({ success: true, count: doctors.length, data: doctors });
     } catch (err) {
       console.error("Get Doctors Error:", err);
@@ -168,19 +261,21 @@ class ClinicAdminController {
     }
   }
 
-  // ==========================================
-  // 3. APPOINTMENTS QUEUE
-  // ==========================================
+
+  //  PPOINTMENTS QUEUE
+
   async getAppointments(req, res) {
     try {
       const clinicId = await this._resolveClinicId(req);
       const { status, search } = req.query;
 
+      // status filter(eg, PENDING, COMPLETED)
       let filter = { clinicId };
       if (status && status !== "ALL" && status !== "All Statuses") {
         filter.status = status.toUpperCase();
       }
 
+      //Appointments ko Patient aur Doctor details ke sath fetch karke date ke hisab se sort kiya
       let appointments = await Appointment.find(filter)
         .populate("patientId", "name email phone age gender")
         .populate({
@@ -189,6 +284,7 @@ class ClinicAdminController {
         })
         .sort({ appointmentDate: -1, createdAt: -1 });
 
+      //agar search query aayi hai, toh memory mein filter karke patient name, doctor name, ya appointment ID match karta hai.
       if (search) {
         const queryLower = search.toLowerCase();
         appointments = appointments.filter((apt) => {
@@ -219,8 +315,12 @@ class ClinicAdminController {
       }
 
       const count = await Appointment.countDocuments({ clinicId });
+
+      //readable id generate 
       const appointmentId = `APT-${101 + count}`;
 
+
+      //new app document database mein insert kiya
       const appointment = await Appointment.create({
         clinicId,
         patientId,
@@ -245,6 +345,7 @@ class ClinicAdminController {
     }
   }
 
+  //app ID dhoondh kar uska status update karta hai aur updated data return karta hai
   async updateAppointmentStatus(req, res) {
     try {
       const { id } = req.params;
@@ -258,19 +359,20 @@ class ClinicAdminController {
     }
   }
 
-  // ==========================================
-  // 4. PATIENT RECORDS
-  // ==========================================
+  
+  //  PATIENT RECORDS
+  
   async getPatients(req, res) {
     try {
       const clinicId = await this._resolveClinicId(req);
       const { search } = req.query;
 
+      //extract id of visited patient
       let patientIds = [];
       if (clinicId) {
         patientIds = await Appointment.distinct("patientId", { clinicId });
       }
-
+// fetch only clinic patient
       let query = {};
       if (patientIds.length > 0) {
         query._id = { $in: patientIds };
@@ -278,6 +380,7 @@ class ClinicAdminController {
         query.role = "PATIENT";
       }
 
+      //regex search
       if (search) {
         query.$or = [
           { name: { $regex: search, $options: "i" } },
@@ -288,6 +391,7 @@ class ClinicAdminController {
 
       const patients = await User.find(query).select("name email phone age gender bloodGroup createdAt");
 
+      //count every patient total visit - formdata
       const patientsWithVisits = await Promise.all(
         patients.map(async (p, idx) => {
           const totalVisits = clinicId ? await Appointment.countDocuments({ clinicId, patientId: p._id }) : 0;
@@ -316,10 +420,13 @@ class ClinicAdminController {
     }
   }
 
+
+  //check patient already registered or not
   async registerPatient(req, res) {
     try {
       const { name, email, phone, age, gender, bloodGroup } = req.body;
 
+// Agar naya patient hai toh default dummy password ke sath uska account bana deta hai.
       let user = await User.findOne({ email: email?.toLowerCase().trim() || "unknown" });
       if (!user) {
         user = await User.create({
@@ -341,13 +448,14 @@ class ClinicAdminController {
     }
   }
 
-  // ==========================================
-  // 5. BILLING & INVOICES
-  // ==========================================
+ 
+  //  BILLING & INVOICES
+ 
   async getInvoices(req, res) {
     try {
       const clinicId = await this._resolveClinicId(req);
 
+ //fetch all app
       let appointments = await Appointment.find({ clinicId })
         .populate("patientId", "name email phone")
         .populate({
@@ -356,6 +464,7 @@ class ClinicAdminController {
         })
         .sort({ createdAt: -1 });
 
+        //app data ko format kake invoice structure (INV-4090, amount, payment status, payment mode) me cnvrt krke return kiya.
       const invoices = appointments.map((apt, idx) => ({
         invoiceId: `INV-${4090 + idx}`,
         appointmentId: apt._id,
@@ -382,6 +491,7 @@ class ClinicAdminController {
 
       let finalPatientId = patientId;
 
+      //Walk-in patient ke case mein agar ID nahi hai, toh patient ka naya record create/find karta hai.
       if (!finalPatientId && patientName) {
         let patient = await Patient.findOne({ clinicId, name: patientName });
         if (!patient) {
@@ -397,12 +507,14 @@ class ClinicAdminController {
 
       // Format current time as default slot (e.g., "11:00 AM")
       const now = new Date();
+
       const defaultTimeSlot = now.toLocaleTimeString('en-US', {
         hour: '2-digit',
         minute: '2-digit',
         hour12: true,
       });
 
+//create bill/app record using walk-in consultation
       const newAppointment = await Appointment.create({
         clinicId,
         patientId: finalPatientId || undefined,
@@ -430,9 +542,10 @@ class ClinicAdminController {
     }
   }
 
-  // ==========================================
-  // 6. CLINIC SETTINGS & RULES
-  // ==========================================
+  
+  //  CLINIC SETTINGS & RULES
+  
+  //Clinic ki details (timings, consultation fee, slot duration, emergency walk-in rules) fetch karke formatted response deta hai.
   async getClinicSettings(req, res) {
     try {
       const clinicId = await this._resolveClinicId(req);
@@ -463,44 +576,46 @@ class ClinicAdminController {
   }
 
   // clinicAdminController.js
-async updateClinicSettings(req, res) {
-  try {
-    console.log('PATCH REQ BODY:', req.body);
-    console.log('USER FROM TOKEN:', req.user);
+  async updateClinicSettings(req, res) {
+    try {
+      console.log('PATCH REQ BODY:', req.body);
+      console.log('USER FROM TOKEN:', req.user);
 
-    // 1. Safe ID Extraction
-    const clinicId = req.user?.clinicId || req.user?._id || req.user?.id;
+      //  Safe ID Extraction to JWT token payload
+      const clinicId = req.user?.clinicId || req.user?._id || req.user?.id;
 
-    if (!clinicId) {
-      return res.status(400).json({
+      if (!clinicId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Clinic ID not present in token',
+        });
+      }
+
+      // 2. Mongoose Cast Error se bachne ke liye safe check
+      const updateData = { ...req.body };
+      delete updateData._id; // id update mat hone do
+
+
+      //Clinic details update karke updated document return karta hai.
+      const updatedClinic = await Clinic.findByIdAndUpdate(
+        clinicId,
+        { $set: updateData },
+        { new: true, runValidators: false }
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: 'Clinic settings updated successfully',
+        data: updatedClinic,
+      });
+    } catch (err) {
+      console.error('PATCH ERROR LOG:', err); //  Yeh terminal mein print hoga
+      return res.status(500).json({
         success: false,
-        message: 'Clinic ID not present in token',
+        message: err.message || 'Internal Server Error',
       });
     }
-
-    // 2. Mongoose Cast Error se bachne ke liye safe check
-    const updateData = { ...req.body };
-    delete updateData._id; // id update mat hone do
-
-    const updatedClinic = await Clinic.findByIdAndUpdate(
-      clinicId,
-      { $set: updateData },
-      { new: true, runValidators: false }
-    );
-
-    return res.status(200).json({
-      success: true,
-      message: 'Clinic settings updated successfully',
-      data: updatedClinic,
-    });
-  } catch (err) {
-    console.error('PATCH ERROR LOG:', err); // 👈 Yeh terminal mein print hoga
-    return res.status(500).json({
-      success: false,
-      message: err.message || 'Internal Server Error',
-    });
   }
-}
 }
 
 module.exports = new ClinicAdminController();

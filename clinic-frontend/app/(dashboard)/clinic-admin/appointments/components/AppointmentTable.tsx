@@ -35,11 +35,16 @@ export interface AppointmentItem {
   type: string;
 }
 
+
+//check data type of appointments and make sure it matches the AppointmentItem interface.
+
 interface AppointmentTableProps {
   appointments: AppointmentItem[];
   onStatusChange: (id: string, newStatus: AppointmentItem['status']) => void;
   onRescheduleClick: (appt: AppointmentItem) => void;
 }
+
+//
 
 export default function AppointmentTable({
   appointments,

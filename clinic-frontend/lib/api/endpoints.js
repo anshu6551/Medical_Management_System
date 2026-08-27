@@ -1,4 +1,4 @@
-export const API_ENDPOINTS = {
+  export const API_ENDPOINTS = {
   // Auth
   AUTH: {
     LOGIN: "/auth/login",
@@ -44,6 +44,8 @@ export const API_ENDPOINTS = {
     APPOINTMENTS: "/doctor/appointments",
     SLOTS: "/doctor/slots",
     FEEDBACK: "/doctor/feedback",
+    POST_PRESCRIPTION:(id)=>`/doctor/appointments/${id}/prescription`,
+    GET_PRESCRIPTION:(id)=>`/doctor/appointments/${id}/prescription`
   },
 
   // Patient

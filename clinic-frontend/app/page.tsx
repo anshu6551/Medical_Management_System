@@ -40,7 +40,7 @@ export default function Home() {
       accentColor: '#83C5BE',
     },
     {
-      title: 'Clinic Admin Portal',
+      title: 'Clinic Portal',
       desc: 'Doctor schedules, real-time appointment queues, patient records & clinic earnings.',
       path: '/login?role=clinic-admin',
       icon: <LocalHospital sx={{ fontSize: 26, color: '#2DD4BF' }} />,
@@ -164,7 +164,7 @@ export default function Home() {
               }}
             >
               Smart Clinic & <span style={{ color: '#83C5BE' }}>Healthcare Platform</span>
-            </Typography>
+            </Typography>6
 
             <Typography
               variant="body1"

@@ -3,7 +3,7 @@ import { AppRouterCacheProvider } from '@mui/material-nextjs/v14-appRouter';
 import ThemeRegistry from '@/components/providers/ThemeRegistry';
 
 export const metadata = {
-  title: 'MediPulse - Healthcare & Clinic Management System',
+  title: 'LifeSpire - Healthcare & Clinic Management System',
   description: 'MERN Stack Healthcare Platform',
 };
 

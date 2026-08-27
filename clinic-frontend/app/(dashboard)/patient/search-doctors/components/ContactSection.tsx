@@ -173,7 +173,7 @@ export default function ContactSection() {
                     Support Email
                   </Typography>
                   <Typography variant="h6" sx={{ color: '#1E1B4B', fontWeight: 800 }}>
-                    support@medipulse.com
+                    support@lifespire.com
                   </Typography>
                 </Box>
               </Box>

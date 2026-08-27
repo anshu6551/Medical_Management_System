@@ -58,6 +58,17 @@ interface InvoiceItem {
   status: string;
 }
 
+interface DoctorFormData {
+  name: string;
+  email: string;
+  password: string;
+  phone: string;
+  specialization: string;
+  consultationFee: string;
+  experienceYears: string;
+  profileImage: File | null;
+}
+
 export default function Modals({
   openDoctor,
   setOpenDoctor,
@@ -102,12 +113,15 @@ export default function Modals({
     severity: 'success',
   });
 
-  const showSnackbar = (message: string, severity: 'success' | 'error' | 'info' | 'warning' = 'success') => {
+  const showSnackbar = (
+    message: string,
+    severity: 'success' | 'error' | 'info' | 'warning' = 'success'
+  ) => {
     setSnackbar({ open: true, message, severity });
   };
 
   // Form States
-  const [doctorForm, setDoctorForm] = useState({
+  const [doctorForm, setDoctorForm] = useState<DoctorFormData>({
     name: '',
     email: '',
     password: '',
@@ -115,6 +129,7 @@ export default function Modals({
     specialization: '',
     consultationFee: '',
     experienceYears: '',
+    profileImage: null,
   });
 
   const [apptForm, setApptForm] = useState({
@@ -126,6 +141,126 @@ export default function Modals({
     slotTime: '10:30 AM',
     type: 'General Checkup',
   });
+
+  // Form Error States
+  const [doctorErrors, setDoctorErrors] = useState({
+    name: '',
+    email: '',
+    password: '',
+    phone: '',
+    specialization: '',
+    consultationFee: '',
+    profileImage: '',
+  });
+
+  const [apptErrors, setApptErrors] = useState({
+    patientName: '',
+    patientEmail: '',
+    patientPhone: '',
+    doctorId: '',
+    slotTime: '',
+  });
+
+  // Validation Patterns
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const passwordRegex =
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+  const phoneRegex = /^[6-9]\d{9}$/;
+
+  const validateDoctorForm = (form: DoctorFormData) => {
+    const errors = {
+      name: '',
+      email: '',
+      password: '',
+      phone: '',
+      specialization: '',
+      consultationFee: '',
+      profileImage: '',
+    };
+
+    if (!form.name || !form.name.trim()) {
+      errors.name = 'Doctor name is required';
+    }
+
+    const cleanPhone = form.phone.replace(/\D/g, '');
+    if (!form.phone || !form.phone.trim()) {
+      errors.phone = 'Phone number is required';
+    } else if (!phoneRegex.test(cleanPhone)) {
+      errors.phone = 'Please enter a valid 10-digit phone number';
+    }
+
+    if (!form.email || !form.email.trim()) {
+      errors.email = 'Email is required';
+    } else if (!emailRegex.test(form.email.trim())) {
+      errors.email = 'Please enter a valid email address';
+    }
+
+    if (!form.password) {
+      errors.password = 'Password is required';
+    } else if (!passwordRegex.test(form.password)) {
+      errors.password =
+        'Must be 8+ chars with uppercase, lowercase, number & special char';
+    }
+
+    if (!form.specialization || !form.specialization.trim()) {
+      errors.specialization = 'Specialization is required';
+    }
+
+    if (!form.profileImage) {
+      errors.profileImage = 'Profile image is required';
+    }
+
+    const feeNumber = Number(form.consultationFee);
+    if (!form.consultationFee || isNaN(feeNumber) || feeNumber <= 0) {
+      errors.consultationFee = 'Please enter a valid fee amount';
+    }
+
+    setDoctorErrors(errors);
+    return Object.values(errors).every((err) => err === '');
+  };
+
+  const validateApptForm = () => {
+    let isValid = true;
+    const errors = {
+      patientName: '',
+      patientEmail: '',
+      patientPhone: '',
+      doctorId: '',
+      slotTime: '',
+    };
+
+    if (!apptForm.patientName.trim()) {
+      errors.patientName = 'Patient name is required';
+      isValid = false;
+    }
+
+    if (
+      apptForm.patientEmail &&
+      !emailRegex.test(apptForm.patientEmail.trim())
+    ) {
+      errors.patientEmail = 'Please enter a valid email address';
+      isValid = false;
+    }
+
+    const cleanPhone = apptForm.patientPhone.replace(/\D/g, '');
+    if (apptForm.patientPhone && !phoneRegex.test(cleanPhone)) {
+      errors.patientPhone = 'Please enter a valid 10-digit phone number';
+      isValid = false;
+    }
+
+    if (!apptForm.doctorId) {
+      errors.doctorId = 'Please select a doctor';
+      isValid = false;
+    }
+
+    if (!apptForm.slotTime.trim()) {
+      errors.slotTime = 'Time slot is required';
+      isValid = false;
+    }
+
+    setApptErrors(errors);
+    return isValid;
+  };
 
   const [scheduleForm, setScheduleForm] = useState({
     doctorId: '',
@@ -175,7 +310,10 @@ export default function Modals({
         setInvoicesList(res.data.data);
       }
     } catch (err: any) {
-      showSnackbar(err?.response?.data?.message || 'Failed to fetch invoices', 'error');
+      showSnackbar(
+        err?.response?.data?.message || 'Failed to fetch invoices',
+        'error'
+      );
     } finally {
       setLoadingData(false);
     }
@@ -188,37 +326,75 @@ export default function Modals({
     if (openBilling) {
       fetchInvoices();
     }
-  }, [openDoctor, openAppt, openSchedule, openBilling, fetchDoctors, fetchInvoices]);
+  }, [
+    openDoctor,
+    openAppt,
+    openSchedule,
+    openBilling,
+    fetchDoctors,
+    fetchInvoices,
+  ]);
 
   // Handle Save Doctor
   const handleSaveDoctor = async () => {
-    if (!doctorForm.name || !doctorForm.email || !doctorForm.password || !doctorForm.specialization || !doctorForm.consultationFee) {
-      showSnackbar('Please fill all required fields', 'warning');
+    if (!validateDoctorForm(doctorForm)) {
+      showSnackbar('Please fix the errors in the form', 'warning');
       return;
     }
 
     try {
       setLoading(true);
       const url = API_ENDPOINTS?.CLINIC_ADMIN?.DOCTORS || '/clinic/doctors';
-      const res = await api.post(url, {
-        name: doctorForm.name,
-        email: doctorForm.email,
-        password: doctorForm.password,
-        phone: doctorForm.phone,
-        specialization: doctorForm.specialization,
-        experienceYears: Number(doctorForm.experienceYears) || 1,
-        consultationFee: Number(doctorForm.consultationFee),
+
+      const formData = new FormData();
+      formData.append('name', doctorForm.name.trim());
+      formData.append('email', doctorForm.email.trim());
+      formData.append('password', doctorForm.password);
+      formData.append('phone', doctorForm.phone.trim());
+      formData.append('specialization', doctorForm.specialization.trim());
+      formData.append('experienceYears', doctorForm.experienceYears || '1');
+      formData.append('consultationFee', doctorForm.consultationFee);
+
+      if (doctorForm.profileImage) {
+        formData.append('profileImage', doctorForm.profileImage);
+      }
+
+      const res = await api.post(url, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
       });
 
       if (res.data?.success) {
         showSnackbar('Doctor onboarded successfully!', 'success');
         setOpenDoctor(false);
-        setDoctorForm({ name: '', email: '', password: '', phone: '', specialization: '', consultationFee: '', experienceYears: '' });
+        setDoctorForm({
+          name: '',
+          email: '',
+          password: '',
+          phone: '',
+          specialization: '',
+          consultationFee: '',
+          experienceYears: '',
+          profileImage: null,
+        });
+        setDoctorErrors({
+          name: '',
+          email: '',
+          password: '',
+          phone: '',
+          specialization: '',
+          consultationFee: '',
+          profileImage: '',
+        });
         fetchDoctors();
         if (onSuccess) onSuccess();
       }
     } catch (err: any) {
-      showSnackbar(err?.response?.data?.message || 'Failed to add doctor', 'error');
+      showSnackbar(
+        err?.response?.data?.message || 'Failed to add doctor',
+        'error'
+      );
     } finally {
       setLoading(false);
     }
@@ -226,22 +402,26 @@ export default function Modals({
 
   // Handle Book Appointment
   const handleBookAppointment = async () => {
-    if (!apptForm.patientName || !apptForm.doctorId) {
-      showSnackbar('Patient name and Doctor selection are required', 'warning');
+    if (!validateApptForm()) {
+      showSnackbar('Please fix the errors in the form', 'warning');
       return;
     }
 
     try {
       setLoading(true);
-      const patientRes = await api.post(API_ENDPOINTS?.CLINIC_ADMIN?.PATIENTS || '/clinic/patients', {
-        name: apptForm.patientName,
-        email: apptForm.patientEmail || `${Date.now()}@patient.com`,
-        phone: apptForm.patientPhone || '9876543210',
-      });
+      const patientRes = await api.post(
+        API_ENDPOINTS?.CLINIC_ADMIN?.PATIENTS || '/clinic/patients',
+        {
+          name: apptForm.patientName.trim(),
+          email: apptForm.patientEmail.trim() || `${Date.now()}@patient.com`,
+          phone: apptForm.patientPhone.trim() || '9876543210',
+        }
+      );
 
       const patientId = patientRes.data?.data?._id;
 
-      const url = API_ENDPOINTS?.CLINIC_ADMIN?.APPOINTMENTS || '/clinic/appointments';
+      const url =
+        API_ENDPOINTS?.CLINIC_ADMIN?.APPOINTMENTS || '/clinic/appointments';
       const res = await api.post(url, {
         patientId,
         doctorId: apptForm.doctorId,
@@ -263,10 +443,20 @@ export default function Modals({
           slotTime: '10:30 AM',
           type: 'General Checkup',
         });
+        setApptErrors({
+          patientName: '',
+          patientEmail: '',
+          patientPhone: '',
+          doctorId: '',
+          slotTime: '',
+        });
         if (onSuccess) onSuccess();
       }
     } catch (err: any) {
-      showSnackbar(err?.response?.data?.message || 'Failed to book appointment', 'error');
+      showSnackbar(
+        err?.response?.data?.message || 'Failed to book appointment',
+        'error'
+      );
     } finally {
       setLoading(false);
     }
@@ -295,10 +485,11 @@ export default function Modals({
 
       showSnackbar('Doctor schedule & slots updated successfully!', 'success');
       setOpenSchedule(false);
-    } catch {
-      // Fallback response handling
-      showSnackbar('Doctor schedule & slots updated successfully!', 'success');
-      setOpenSchedule(false);
+    } catch (err: any) {
+      showSnackbar(
+        err?.response?.data?.message || 'Failed to update doctor schedule',
+        'error'
+      );
     } finally {
       setLoading(false);
     }
@@ -307,9 +498,36 @@ export default function Modals({
   return (
     <>
       {/* 1. Add Doctor Modal */}
-      <Dialog open={openDoctor} onClose={() => setOpenDoctor(false)} PaperProps={{ sx: dialogSx }}>
-        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          Add New Doctor <IconButton onClick={() => setOpenDoctor(false)} sx={{ color: '#94A3B8' }}><Close /></IconButton>
+      <Dialog
+        open={openDoctor}
+        onClose={() => {
+          setOpenDoctor(false);
+          setDoctorErrors({
+            name: '',
+            email: '',
+            password: '',
+            phone: '',
+            specialization: '',
+            consultationFee: '',
+            profileImage: '',
+          });
+        }}
+        PaperProps={{ sx: dialogSx }}
+      >
+        <DialogTitle
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
+          Add New Doctor{' '}
+          <IconButton
+            onClick={() => setOpenDoctor(false)}
+            sx={{ color: '#94A3B8' }}
+          >
+            <Close />
+          </IconButton>
         </DialogTitle>
         <DialogContent dividers sx={{ borderColor: '#334155' }}>
           <Stack spacing={2} mt={1}>
@@ -318,7 +536,13 @@ export default function Modals({
               label="Doctor Name *"
               placeholder="Dr. John Doe"
               value={doctorForm.name}
-              onChange={(e) => setDoctorForm({ ...doctorForm, name: e.target.value })}
+              error={!!doctorErrors.name}
+              helperText={doctorErrors.name}
+              onChange={(e) => {
+                setDoctorForm({ ...doctorForm, name: e.target.value });
+                if (doctorErrors.name)
+                  setDoctorErrors({ ...doctorErrors, name: '' });
+              }}
               InputLabelProps={{ sx: { color: '#94A3B8' } }}
               InputProps={{ sx: inputStyle }}
             />
@@ -328,7 +552,13 @@ export default function Modals({
               label="Doctor Email *"
               placeholder="doctor@clinic.com"
               value={doctorForm.email}
-              onChange={(e) => setDoctorForm({ ...doctorForm, email: e.target.value })}
+              error={!!doctorErrors.email}
+              helperText={doctorErrors.email}
+              onChange={(e) => {
+                setDoctorForm({ ...doctorForm, email: e.target.value });
+                if (doctorErrors.email)
+                  setDoctorErrors({ ...doctorErrors, email: '' });
+              }}
               InputLabelProps={{ sx: { color: '#94A3B8' } }}
               InputProps={{ sx: inputStyle }}
             />
@@ -338,7 +568,28 @@ export default function Modals({
               label="Initial Password *"
               placeholder="••••••••"
               value={doctorForm.password}
-              onChange={(e) => setDoctorForm({ ...doctorForm, password: e.target.value })}
+              error={!!doctorErrors.password}
+              helperText={doctorErrors.password}
+              onChange={(e) => {
+                setDoctorForm({ ...doctorForm, password: e.target.value });
+                if (doctorErrors.password)
+                  setDoctorErrors({ ...doctorErrors, password: '' });
+              }}
+              InputLabelProps={{ sx: { color: '#94A3B8' } }}
+              InputProps={{ sx: inputStyle }}
+            />
+            <TextField
+              fullWidth
+              label="Phone Number *"
+              placeholder="9876543210"
+              value={doctorForm.phone}
+              error={!!doctorErrors.phone}
+              helperText={doctorErrors.phone}
+              onChange={(e) => {
+                setDoctorForm({ ...doctorForm, phone: e.target.value });
+                if (doctorErrors.phone)
+                  setDoctorErrors({ ...doctorErrors, phone: '' });
+              }}
               InputLabelProps={{ sx: { color: '#94A3B8' } }}
               InputProps={{ sx: inputStyle }}
             />
@@ -347,7 +598,31 @@ export default function Modals({
               label="Specialization *"
               placeholder="e.g. General Physician, Cardiologist"
               value={doctorForm.specialization}
-              onChange={(e) => setDoctorForm({ ...doctorForm, specialization: e.target.value })}
+              error={!!doctorErrors.specialization}
+              helperText={doctorErrors.specialization}
+              onChange={(e) => {
+                setDoctorForm({
+                  ...doctorForm,
+                  specialization: e.target.value,
+                });
+                if (doctorErrors.specialization)
+                  setDoctorErrors({ ...doctorErrors, specialization: '' });
+              }}
+              InputLabelProps={{ sx: { color: '#94A3B8' } }}
+              InputProps={{ sx: inputStyle }}
+            />
+            <TextField
+              fullWidth
+              type="number"
+              label="Experience (Years)"
+              placeholder="5"
+              value={doctorForm.experienceYears}
+              onChange={(e) =>
+                setDoctorForm({
+                  ...doctorForm,
+                  experienceYears: e.target.value,
+                })
+              }
               InputLabelProps={{ sx: { color: '#94A3B8' } }}
               InputProps={{ sx: inputStyle }}
             />
@@ -357,29 +632,88 @@ export default function Modals({
               label="Consultation Fee (₹) *"
               placeholder="500"
               value={doctorForm.consultationFee}
-              onChange={(e) => setDoctorForm({ ...doctorForm, consultationFee: e.target.value })}
+              error={!!doctorErrors.consultationFee}
+              helperText={doctorErrors.consultationFee}
+              onChange={(e) => {
+                setDoctorForm({
+                  ...doctorForm,
+                  consultationFee: e.target.value,
+                });
+                if (doctorErrors.consultationFee)
+                  setDoctorErrors({ ...doctorErrors, consultationFee: '' });
+              }}
               InputLabelProps={{ sx: { color: '#94A3B8' } }}
+              InputProps={{ sx: inputStyle }}
+            />
+            <TextField
+              fullWidth
+              type="file"
+              error={!!doctorErrors.profileImage}
+              helperText={doctorErrors.profileImage}
+              inputProps={{ accept: 'image/*' }}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                const file = e.target.files?.[0] || null;
+                setDoctorForm({ ...doctorForm, profileImage: file });
+                if (doctorErrors.profileImage) {
+                  setDoctorErrors({ ...doctorErrors, profileImage: '' });
+                }
+              }}
+              InputLabelProps={{ shrink: true, sx: { color: '#94A3B8' } }}
               InputProps={{ sx: inputStyle }}
             />
           </Stack>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button onClick={() => setOpenDoctor(false)} sx={{ color: '#94A3B8' }}>Cancel</Button>
+          <Button
+            onClick={() => setOpenDoctor(false)}
+            sx={{ color: '#94A3B8' }}
+          >
+            Cancel
+          </Button>
           <Button
             variant="contained"
             onClick={handleSaveDoctor}
             disabled={loading}
             sx={{ bgcolor: '#006D77', '&:hover': { bgcolor: '#004D54' } }}
           >
-            {loading ? <CircularProgress size={22} sx={{ color: '#FFF' }} /> : 'Save Doctor'}
+            {loading ? (
+              <CircularProgress size={22} sx={{ color: '#FFF' }} />
+            ) : (
+              'Save Doctor'
+            )}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* 2. Book Walk-in Appointment Modal */}
-      <Dialog open={openAppt} onClose={() => setOpenAppt(false)} PaperProps={{ sx: dialogSx }}>
-        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          Book Walk-In Appointment <IconButton onClick={() => setOpenAppt(false)} sx={{ color: '#94A3B8' }}><Close /></IconButton>
+      <Dialog
+        open={openAppt}
+        onClose={() => {
+          setOpenAppt(false);
+          setApptErrors({
+            patientName: '',
+            patientEmail: '',
+            patientPhone: '',
+            doctorId: '',
+            slotTime: '',
+          });
+        }}
+        PaperProps={{ sx: dialogSx }}
+      >
+        <DialogTitle
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
+          Book Walk-In Appointment{' '}
+          <IconButton
+            onClick={() => setOpenAppt(false)}
+            sx={{ color: '#94A3B8' }}
+          >
+            <Close />
+          </IconButton>
         </DialogTitle>
         <DialogContent dividers sx={{ borderColor: '#334155' }}>
           <Stack spacing={2} mt={1}>
@@ -388,7 +722,29 @@ export default function Modals({
               label="Patient Name *"
               placeholder="Rahul Sharma"
               value={apptForm.patientName}
-              onChange={(e) => setApptForm({ ...apptForm, patientName: e.target.value })}
+              error={Boolean(apptErrors.patientName)}
+              helperText={apptErrors.patientName}
+              onChange={(e) => {
+                setApptForm({ ...apptForm, patientName: e.target.value });
+                if (apptErrors.patientName)
+                  setApptErrors({ ...apptErrors, patientName: '' });
+              }}
+              InputLabelProps={{ sx: { color: '#94A3B8' } }}
+              InputProps={{ sx: inputStyle }}
+            />
+            <TextField
+              fullWidth
+              type="email"
+              label="Patient Email"
+              placeholder="patient@example.com"
+              value={apptForm.patientEmail}
+              error={Boolean(apptErrors.patientEmail)}
+              helperText={apptErrors.patientEmail}
+              onChange={(e) => {
+                setApptForm({ ...apptForm, patientEmail: e.target.value });
+                if (apptErrors.patientEmail)
+                  setApptErrors({ ...apptErrors, patientEmail: '' });
+              }}
               InputLabelProps={{ sx: { color: '#94A3B8' } }}
               InputProps={{ sx: inputStyle }}
             />
@@ -397,7 +753,13 @@ export default function Modals({
               label="Patient Phone"
               placeholder="+91 98765 43210"
               value={apptForm.patientPhone}
-              onChange={(e) => setApptForm({ ...apptForm, patientPhone: e.target.value })}
+              error={Boolean(apptErrors.patientPhone)}
+              helperText={apptErrors.patientPhone}
+              onChange={(e) => {
+                setApptForm({ ...apptForm, patientPhone: e.target.value });
+                if (apptErrors.patientPhone)
+                  setApptErrors({ ...apptErrors, patientPhone: '' });
+              }}
               InputLabelProps={{ sx: { color: '#94A3B8' } }}
               InputProps={{ sx: inputStyle }}
             />
@@ -406,7 +768,13 @@ export default function Modals({
               select
               label="Assign Doctor *"
               value={apptForm.doctorId}
-              onChange={(e) => setApptForm({ ...apptForm, doctorId: e.target.value })}
+              error={Boolean(apptErrors.doctorId)}
+              helperText={apptErrors.doctorId}
+              onChange={(e) => {
+                setApptForm({ ...apptForm, doctorId: e.target.value });
+                if (apptErrors.doctorId)
+                  setApptErrors({ ...apptErrors, doctorId: '' });
+              }}
               InputLabelProps={{ sx: { color: '#94A3B8' } }}
               InputProps={{ sx: inputStyle }}
             >
@@ -415,39 +783,68 @@ export default function Modals({
               </MenuItem>
               {doctorsList.map((doc) => (
                 <MenuItem key={doc._id} value={doc._id}>
-                  Dr. {doc.userId?.name || 'Doctor'} ({doc.specialization || 'General'})
+                  Dr. {doc.userId?.name || 'Doctor'} (
+                  {doc.specialization || 'General'})
                 </MenuItem>
               ))}
             </TextField>
             <TextField
               fullWidth
-              label="Time Slot"
+              label="Time Slot *"
               placeholder="10:30 AM"
               value={apptForm.slotTime}
-              onChange={(e) => setApptForm({ ...apptForm, slotTime: e.target.value })}
+              error={Boolean(apptErrors.slotTime)}
+              helperText={apptErrors.slotTime}
+              onChange={(e) => {
+                setApptForm({ ...apptForm, slotTime: e.target.value });
+                if (apptErrors.slotTime)
+                  setApptErrors({ ...apptErrors, slotTime: '' });
+              }}
               InputLabelProps={{ sx: { color: '#94A3B8' } }}
               InputProps={{ sx: inputStyle }}
             />
           </Stack>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button onClick={() => setOpenAppt(false)} sx={{ color: '#94A3B8' }}>Cancel</Button>
+          <Button
+            onClick={() => setOpenAppt(false)}
+            sx={{ color: '#94A3B8' }}
+          >
+            Cancel
+          </Button>
           <Button
             variant="contained"
             onClick={handleBookAppointment}
             disabled={loading}
             sx={{ bgcolor: '#006D77', '&:hover': { bgcolor: '#004D54' } }}
           >
-            {loading ? <CircularProgress size={22} sx={{ color: '#FFF' }} /> : 'Confirm Booking'}
+            {loading ? (
+              <CircularProgress size={22} sx={{ color: '#FFF' }} />
+            ) : (
+              'Confirm Booking'
+            )}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* 3. Manage Doctor Schedule & Slots Modal */}
-      <Dialog open={openSchedule} onClose={() => setOpenSchedule(false)} PaperProps={{ sx: dialogSx }}>
-        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          Manage Doctor Schedule & Slots{' '}
-          <IconButton onClick={() => setOpenSchedule(false)} sx={{ color: '#94A3B8' }}>
+      <Dialog
+        open={openSchedule}
+        onClose={() => setOpenSchedule(false)}
+        PaperProps={{ sx: dialogSx }}
+      >
+        <DialogTitle
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
+          Manage Doctor Schedule & Slots
+          <IconButton
+            onClick={() => setOpenSchedule(false)}
+            sx={{ color: '#94A3B8' }}
+          >
             <Close />
           </IconButton>
         </DialogTitle>
@@ -458,7 +855,12 @@ export default function Modals({
               select
               label="Select Doctor *"
               value={scheduleForm.doctorId}
-              onChange={(e) => setScheduleForm({ ...scheduleForm, doctorId: e.target.value })}
+              onChange={(e) =>
+                setScheduleForm({
+                  ...scheduleForm,
+                  doctorId: e.target.value,
+                })
+              }
               InputLabelProps={{ sx: { color: '#94A3B8' } }}
               InputProps={{ sx: inputStyle }}
             >
@@ -467,13 +869,17 @@ export default function Modals({
               </MenuItem>
               {doctorsList.map((doc) => (
                 <MenuItem key={doc._id} value={doc._id}>
-                  Dr. {doc.userId?.name || 'Doctor'} ({doc.specialization || 'General'})
+                  Dr. {doc.userId?.name || 'Doctor'} (
+                  {doc.specialization || 'General'})
                 </MenuItem>
               ))}
             </TextField>
 
             <Box>
-              <Typography variant="body2" sx={{ color: '#94A3B8', mb: 1, fontWeight: 600 }}>
+              <Typography
+                variant="body2"
+                sx={{ color: '#94A3B8', mb: 1, fontWeight: 600 }}
+              >
                 Available Working Days
               </Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
@@ -492,7 +898,9 @@ export default function Modals({
                         borderColor: isSelected ? '#006D77' : '#334155',
                         color: isSelected ? '#FFFFFF' : '#94A3B8',
                         '&:hover': {
-                          bgcolor: isSelected ? '#004D54' : 'rgba(255,255,255,0.05)',
+                          bgcolor: isSelected
+                            ? '#004D54'
+                            : 'rgba(255,255,255,0.05)',
                         },
                       }}
                     >
@@ -503,13 +911,24 @@ export default function Modals({
               </Box>
             </Box>
 
-            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: 2,
+              }}
+            >
               <TextField
                 fullWidth
                 type="time"
                 label="Shift Start Time"
                 value={scheduleForm.startTime}
-                onChange={(e) => setScheduleForm({ ...scheduleForm, startTime: e.target.value })}
+                onChange={(e) =>
+                  setScheduleForm({
+                    ...scheduleForm,
+                    startTime: e.target.value,
+                  })
+                }
                 InputLabelProps={{ shrink: true, sx: { color: '#94A3B8' } }}
                 InputProps={{ sx: inputStyle }}
               />
@@ -518,7 +937,12 @@ export default function Modals({
                 type="time"
                 label="Shift End Time"
                 value={scheduleForm.endTime}
-                onChange={(e) => setScheduleForm({ ...scheduleForm, endTime: e.target.value })}
+                onChange={(e) =>
+                  setScheduleForm({
+                    ...scheduleForm,
+                    endTime: e.target.value,
+                  })
+                }
                 InputLabelProps={{ shrink: true, sx: { color: '#94A3B8' } }}
                 InputProps={{ sx: inputStyle }}
               />
@@ -529,12 +953,19 @@ export default function Modals({
               select
               label="Consultation Slot Duration"
               value={scheduleForm.slotDuration}
-              onChange={(e) => setScheduleForm({ ...scheduleForm, slotDuration: e.target.value })}
+              onChange={(e) =>
+                setScheduleForm({
+                  ...scheduleForm,
+                  slotDuration: e.target.value,
+                })
+              }
               InputLabelProps={{ sx: { color: '#94A3B8' } }}
               InputProps={{ sx: inputStyle }}
             >
               <MenuItem value="10">10 Minutes per Patient</MenuItem>
-              <MenuItem value="15">15 Minutes per Patient (Recommended)</MenuItem>
+              <MenuItem value="15">
+                15 Minutes per Patient (Recommended)
+              </MenuItem>
               <MenuItem value="20">20 Minutes per Patient</MenuItem>
               <MenuItem value="30">30 Minutes per Patient</MenuItem>
               <MenuItem value="45">45 Minutes per Patient</MenuItem>
@@ -542,7 +973,10 @@ export default function Modals({
           </Stack>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button onClick={() => setOpenSchedule(false)} sx={{ color: '#94A3B8' }}>
+          <Button
+            onClick={() => setOpenSchedule(false)}
+            sx={{ color: '#94A3B8' }}
+          >
             Cancel
           </Button>
           <Button
@@ -551,15 +985,37 @@ export default function Modals({
             disabled={loading}
             sx={{ bgcolor: '#006D77', '&:hover': { bgcolor: '#004D54' } }}
           >
-            {loading ? <CircularProgress size={22} sx={{ color: '#FFF' }} /> : 'Update Schedule'}
+            {loading ? (
+              <CircularProgress size={22} sx={{ color: '#FFF' }} />
+            ) : (
+              'Update Schedule'
+            )}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* 4. Billing Summary Modal */}
-      <Dialog open={openBilling} onClose={() => setOpenBilling(false)} PaperProps={{ sx: { ...dialogSx, minWidth: { xs: '90%', sm: '500px' } } }}>
-        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          Clinic Invoices Summary <IconButton onClick={() => setOpenBilling(false)} sx={{ color: '#94A3B8' }}><Close /></IconButton>
+      <Dialog
+        open={openBilling}
+        onClose={() => setOpenBilling(false)}
+        PaperProps={{
+          sx: { ...dialogSx, minWidth: { xs: '90%', sm: '500px' } },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
+          Clinic Invoices Summary{' '}
+          <IconButton
+            onClick={() => setOpenBilling(false)}
+            sx={{ color: '#94A3B8' }}
+          >
+            <Close />
+          </IconButton>
         </DialogTitle>
         <DialogContent dividers sx={{ borderColor: '#334155' }}>
           {loadingData ? (
@@ -579,7 +1035,10 @@ export default function Modals({
                     secondary={`₹${inv.amount} | ${inv.status} (${inv.mode})`}
                     primaryTypographyProps={{ color: '#FFF', fontWeight: 600 }}
                     secondaryTypographyProps={{
-                      color: inv.status?.toLowerCase() === 'paid' ? '#4ADE80' : '#FBBF24',
+                      color:
+                        inv.status?.toLowerCase() === 'paid'
+                          ? '#4ADE80'
+                          : '#FBBF24',
                     }}
                   />
                 </ListItem>
@@ -588,41 +1047,99 @@ export default function Modals({
           )}
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button variant="contained" onClick={() => setOpenBilling(false)} sx={{ bgcolor: '#006D77', '&:hover': { bgcolor: '#004D54' } }}>
+          <Button
+            variant="contained"
+            onClick={() => setOpenBilling(false)}
+            sx={{ bgcolor: '#006D77', '&:hover': { bgcolor: '#004D54' } }}
+          >
             Close Summary
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* 5. Patient Feedback Modal */}
-      <Dialog open={openFeedback} onClose={() => setOpenFeedback(false)} PaperProps={{ sx: { ...dialogSx, minWidth: { xs: '90%', sm: '500px' } } }}>
-        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          Recent Patient Feedback <IconButton onClick={() => setOpenFeedback(false)} sx={{ color: '#94A3B8' }}><Close /></IconButton>
+      <Dialog
+        open={openFeedback}
+        onClose={() => setOpenFeedback(false)}
+        PaperProps={{
+          sx: { ...dialogSx, minWidth: { xs: '90%', sm: '500px' } },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
+          Recent Patient Feedback{' '}
+          <IconButton
+            onClick={() => setOpenFeedback(false)}
+            sx={{ color: '#94A3B8' }}
+          >
+            <Close />
+          </IconButton>
         </DialogTitle>
         <DialogContent dividers sx={{ borderColor: '#334155' }}>
           <Stack spacing={2} mt={1}>
-            <Box sx={{ p: 2, bgcolor: 'rgba(255,255,255,0.04)', borderRadius: '10px' }}>
-              <Box display="flex" justifyContent="space-between" alignItems="center">
+            <Box
+              sx={{
+                p: 2,
+                bgcolor: 'rgba(255,255,255,0.04)',
+                borderRadius: '10px',
+              }}
+            >
+              <Box
+                display="flex"
+                justifyContent="space-between"
+                alignItems="center"
+              >
                 <Typography fontWeight={700}>Amitav Ghosh</Typography>
-                <Rating value={5} readOnly size="small" emptyIcon={<Star style={{ color: '#334155' }} />} />
+                <Rating
+                  value={5}
+                  readOnly
+                  size="small"
+                  emptyIcon={<Star style={{ color: '#334155' }} />}
+                />
               </Box>
               <Typography variant="body2" color="#CBD5E1" mt={1}>
-                &quot;Excellent service, Dr. Roy was very detailed and friendly!&quot;
+                &quot;Excellent service, Dr. Roy was very detailed and
+                friendly!&quot;
               </Typography>
             </Box>
-            <Box sx={{ p: 2, bgcolor: 'rgba(255,255,255,0.04)', borderRadius: '10px' }}>
-              <Box display="flex" justifyContent="space-between" alignItems="center">
+            <Box
+              sx={{
+                p: 2,
+                bgcolor: 'rgba(255,255,255,0.04)',
+                borderRadius: '10px',
+              }}
+            >
+              <Box
+                display="flex"
+                justifyContent="space-between"
+                alignItems="center"
+              >
                 <Typography fontWeight={700}>Priya Verma</Typography>
-                <Rating value={4} readOnly size="small" emptyIcon={<Star style={{ color: '#334155' }} />} />
+                <Rating
+                  value={4}
+                  readOnly
+                  size="small"
+                  emptyIcon={<Star style={{ color: '#334155' }} />}
+                />
               </Box>
               <Typography variant="body2" color="#CBD5E1" mt={1}>
-                &quot;Waiting time was slightly long, but consultation was great.&quot;
+                &quot;Waiting time was slightly long, but consultation was
+                great.&quot;
               </Typography>
             </Box>
           </Stack>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button variant="contained" onClick={() => setOpenFeedback(false)} sx={{ bgcolor: '#006D77', '&:hover': { bgcolor: '#004D54' } }}>
+          <Button
+            variant="contained"
+            onClick={() => setOpenFeedback(false)}
+            sx={{ bgcolor: '#006D77', '&:hover': { bgcolor: '#004D54' } }}
+          >
             Done
           </Button>
         </DialogActions>

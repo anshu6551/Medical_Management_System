@@ -66,6 +66,9 @@ export default function AllDoctorsPage() {
       setLoading(true);
       const res = await api.get('/patient/doctors');
 
+
+      console.log('profileImage',res?.data?.data)
+
       if (res.data?.success && Array.isArray(res.data?.data)) {
         const mappedDoctors: Doctor[] = res.data.data.map((doc: any) => ({
           id: doc._id || doc.id,

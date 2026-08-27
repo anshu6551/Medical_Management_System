@@ -37,7 +37,7 @@ export default function Footer() {
                 <FavoriteOutlined fontSize="small" />
               </Box>
               <Typography variant="h5" sx={{ fontWeight: 900, color: '#1E1B4B', letterSpacing: '-0.5px' }}>
-                Medi<span style={{ color: '#4F46E5' }}>Pulse</span>
+                Life<span style={{ color: '#4F46E5' }}>Spire</span>
               </Typography>
             </Box>
 
@@ -142,7 +142,7 @@ export default function Footer() {
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, color: '#64748B' }}>
                 <MailOutlined sx={{ color: '#4F46E5', fontSize: 20 }} />
                 <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.95rem' }}>
-                  contact@medipulse.com
+                  contact@lifespire.com
                 </Typography>
               </Box>
             </Stack>
@@ -181,7 +181,7 @@ export default function Footer() {
           }}
         >
           <Typography variant="body2" sx={{ color: '#64748B', fontWeight: 600 }}>
-            © Copyright 2026 MediPulse. All Right Reserved
+            © Copyright 2026 LifeSpire. All Right Reserved
           </Typography>
           <Stack direction="row" spacing={3} sx={{ '& a': { color: '#64748B', textDecoration: 'none', fontSize: '0.85rem', fontWeight: 600 } }}>
             <a href="#">Privacy Policy</a>

@@ -48,7 +48,7 @@ export default function DepartmentSection() {
       <Container maxWidth={false} sx={{ maxWidth: '1350px', px: { xs: 2, md: 4 } }}>
         <Box sx={{ textAlign: 'center', mb: 6 }}>
           <Chip
-            label="MediPulse | Departments →"
+            label="LifeSpire | Departments →"
             size="small"
             sx={{
               bgcolor: '#FFFFFF',
