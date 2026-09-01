@@ -1,14 +1,13 @@
 
 
-
 const express = require('express');
 const router = express.Router();
 const patientController = require('../controllers/patientController');
 const AuthCheck = require('../middlewares/AuthMiddleware');
 
-// ==========================================
+
 // PUBLIC ROUTES (No Login Required)
-// ==========================================
+
 
 // 1. Get All Doctors / Search & Filter by Specialty
 router.get('/doctors', (req, res) => {
@@ -22,9 +21,9 @@ router.post('/contact', (req, res) => {
   patientController.submitContactInquiry(req, res);
 });
 
-// ==========================================
+
 // PROTECTED ROUTES (Patient Login Required)
-// ==========================================
+
 
 // 3. Book OPD Appointment Slot (Manual / Pay on Visit)
 router.post('/appointments', AuthCheck, (req, res) => {
@@ -50,9 +49,9 @@ router.post('/doctors/:id/feedback', AuthCheck, (req, res) => {
   patientController.submitFeedback(req, res);
 });
 
-// ==========================================
+
 // STRIPE PAYMENT ROUTES
-// ==========================================
+
 
 // 7. Create Stripe Payment Intent (Returns clientSecret)
 router.post('/create-stripe-intent', AuthCheck, (req, res) => {

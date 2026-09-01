@@ -28,9 +28,8 @@ import {
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import api from '@/lib/api/axios';
-import { API_ENDPOINTS } from '@/lib/api/endpoints'; // 👈 Check path if exists
+import { API_ENDPOINTS } from '@/lib/api/endpoints';
 
-// Initialize Stripe instance outside component rendering
 const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ''
 );
@@ -42,9 +41,9 @@ interface BookingModalProps {
   onConfirmBooking: (appointmentData?: any) => void;
 }
 
-// -------------------------------------------------------------
-// Child Component: Stripe Form (Needs useStripe & useElements)
-// -------------------------------------------------------------
+
+// Child Component: Stripe Form
+
 function StripePaymentForm({
   consultFee,
   doctor,
@@ -71,7 +70,6 @@ function StripePaymentForm({
     setErrorMessage('');
 
     try {
-      // 1. Confirm Payment through Stripe
       const result = await stripe.confirmPayment({
         elements,
         confirmParams: {
@@ -86,7 +84,6 @@ function StripePaymentForm({
         return;
       }
 
-      // 2. Payment Succeeded -> Call Backend to Save Appointment in DB
       if (result.paymentIntent && result.paymentIntent.status === 'succeeded') {
         let storedUser: any = {};
         if (typeof window !== 'undefined') {
@@ -168,9 +165,9 @@ function StripePaymentForm({
   );
 }
 
-// -------------------------------------------------------------
+
 // Main Booking Modal Component
-// -------------------------------------------------------------
+
 export default function BookingModal({
   open,
   doctor,
@@ -180,6 +177,7 @@ export default function BookingModal({
   const [selectedSlot, setSelectedSlot] = useState('10:30 AM');
   const [loading, setLoading] = useState(false);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [bookingSuccessData, setBookingSuccessData] = useState<any | null>(null);
 
   if (!doctor) return null;
 
@@ -187,7 +185,6 @@ export default function BookingModal({
     ? Number(doctor.fee.replace(/[^0-9]/g, ''))
     : (doctor.fee || doctor.consultationFee || 500);
 
-  // Step 1: Initialize Payment Intent with Backend
   const handleProceedToPayment = async () => {
     try {
       setLoading(true);
@@ -212,7 +209,15 @@ export default function BookingModal({
 
   const handleModalClose = () => {
     setClientSecret(null);
+    setBookingSuccessData(null);
     onClose();
+  };
+
+  const handleSuccessFinish = () => {
+    if (bookingSuccessData) {
+      onConfirmBooking(bookingSuccessData);
+    }
+    handleModalClose();
   };
 
   return (
@@ -229,131 +234,213 @@ export default function BookingModal({
         },
       }}
     >
-      <DialogTitle sx={{ fontWeight: 900, color: '#1E1B4B', pb: 0.5 }}>
-        Confirm OPD Consultation
-      </DialogTitle>
+      {!bookingSuccessData && (
+        <DialogTitle sx={{ fontWeight: 900, color: '#1E1B4B', pb: 0.5 }}>
+          Confirm OPD Consultation
+        </DialogTitle>
+      )}
 
-      <DialogContent sx={{ pt: 1.5 }}>
-        <Typography variant="body2" sx={{ color: '#64748B', mb: 2.5 }}>
-          {clientSecret
-            ? 'Complete your card details below to confirm the appointment.'
-            : 'Review slot details and proceed to secure online checkout.'}
-        </Typography>
-
-        {/* Doctor Summary Card */}
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 2,
-            p: 2,
-            bgcolor: '#F8FAFC',
-            borderRadius: '18px',
-            border: '1px solid #E2E8F0',
-            mb: 3,
-          }}
-        >
-          <Avatar
-            src={doctor.img || doctor.profileImage}
-            sx={{ width: 54, height: 54, border: '2px solid #4F46E5' }}
-          >
-            {doctor.name?.charAt(0)}
-          </Avatar>
-          <Box>
-            <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#1E1B4B' }}>
-              {doctor.name}
-            </Typography>
-            <Typography variant="caption" sx={{ color: '#4F46E5', fontWeight: 700, display: 'block' }}>
-              {doctor.specialty || doctor.specialization}
-            </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: '#64748B', mt: 0.3 }}>
-              <LocationOnOutlined sx={{ fontSize: 13 }} />
-              <Typography variant="caption">{doctor.clinic || doctor.clinicName || 'MediPulse Hub'}</Typography>
-            </Box>
-          </Box>
-        </Box>
-
-        {/* Dynamic View: Slot Selection vs Stripe Elements Form */}
-        {!clientSecret ? (
-          <>
-            <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#1E1B4B', mb: 1 }}>
-              Select Preferred Slot
-            </Typography>
-            <RadioGroup value={selectedSlot} onChange={(e) => setSelectedSlot(e.target.value)}>
-              <Stack spacing={1} sx={{ mb: 2 }}>
-                {['10:30 AM', '11:30 AM', '02:00 PM', '04:30 PM'].map((slot) => (
-                  <Box
-                    key={slot}
-                    onClick={() => setSelectedSlot(slot)}
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      px: 2,
-                      py: 1,
-                      borderRadius: '14px',
-                      border: selectedSlot === slot ? '1.5px solid #4F46E5' : '1px solid #E2E8F0',
-                      bgcolor: selectedSlot === slot ? '#EEF2FF' : '#FFFFFF',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <AccessTimeOutlined sx={{ fontSize: 18, color: selectedSlot === slot ? '#4F46E5' : '#64748B' }} />
-                      <Typography variant="body2" sx={{ fontWeight: 700, color: selectedSlot === slot ? '#4F46E5' : '#1E1B4B' }}>
-                        {slot}
-                      </Typography>
-                    </Box>
-                    <Radio
-                      size="small"
-                      checked={selectedSlot === slot}
-                      value={slot}
-                      sx={{ color: '#4F46E5', '&.Mui-checked': { color: '#4F46E5' } }}
-                    />
-                  </Box>
-                ))}
-              </Stack>
-            </RadioGroup>
-
-            <Divider sx={{ my: 2 }} />
-
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography variant="body2" sx={{ color: '#64748B', fontWeight: 600 }}>
-                Consultation Fee:
-              </Typography>
-              <Typography variant="h6" sx={{ fontWeight: 900, color: '#1E1B4B' }}>
-                ₹{consultFee}
-              </Typography>
-            </Box>
-          </>
-        ) : (
-          <Elements
-            stripe={stripePromise}
-            options={{
-              clientSecret,
-              appearance: {
-                theme: 'stripe',
-                variables: {
-                  colorPrimary: '#4F46E5',
-                  borderRadius: '12px',
-                },
-              },
-            }}
-          >
-            <StripePaymentForm
-              consultFee={consultFee}
-              doctor={doctor}
-              selectedSlot={selectedSlot}
-              onSuccess={(data) => {
-                onConfirmBooking(data);
-                handleModalClose();
+      <DialogContent sx={{ pt: bookingSuccessData ? 3 : 1.5 }}>
+        {bookingSuccessData ? (
+          /* Zero-dependency Inline Success Card */
+          <Box sx={{ textAlign: 'center', py: 2 }}>
+            <Box
+              sx={{
+                width: 65,
+                height: 65,
+                borderRadius: '50%',
+                bgcolor: '#DCFCE7',
+                color: '#16A34A',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 32,
+                fontWeight: 900,
+                mx: 'auto',
+                mb: 2,
               }}
-              onBack={() => setClientSecret(null)}
-            />
-          </Elements>
+            >
+              ✓
+            </Box>
+
+            <Typography variant="h6" sx={{ fontWeight: 900, color: '#1E1B4B', mb: 0.5 }}>
+              Payment Successful!
+            </Typography>
+
+            <Typography variant="body2" sx={{ color: '#64748B', mb: 2 }}>
+              Your appointment with <strong>{doctor.name}</strong> is confirmed.
+            </Typography>
+
+            <Box
+              sx={{
+                bgcolor: '#F8FAFC',
+                p: 1.5,
+                borderRadius: '14px',
+                border: '1px solid #E2E8F0',
+                mb: 3,
+                display: 'flex',
+                justifyContent: 'space-around',
+              }}
+            >
+              <Box>
+                <Typography variant="caption" sx={{ color: '#64748B', display: 'block' }}>
+                  Slot Time
+                </Typography>
+                <Typography variant="body2" sx={{ fontWeight: 800, color: '#4F46E5' }}>
+                  {selectedSlot}
+                </Typography>
+              </Box>
+              <Divider orientation="vertical" flexItem />
+              <Box>
+                <Typography variant="caption" sx={{ color: '#64748B', display: 'block' }}>
+                  Amount Paid
+                </Typography>
+                <Typography variant="body2" sx={{ fontWeight: 800, color: '#16A34A' }}>
+                  ₹{consultFee}
+                </Typography>
+              </Box>
+            </Box>
+
+            <Button
+              variant="contained"
+              fullWidth
+              disableElevation
+              onClick={handleSuccessFinish}
+              sx={{
+                bgcolor: '#16A34A',
+                '&:hover': { bgcolor: '#15803D' },
+                borderRadius: '50px',
+                fontWeight: 800,
+                py: 1.2,
+                textTransform: 'none',
+              }}
+            >
+              Done
+            </Button>
+          </Box>
+        ) : (
+          <>
+            <Typography variant="body2" sx={{ color: '#64748B', mb: 2.5 }}>
+              {clientSecret
+                ? 'Complete your card details below to confirm the appointment.'
+                : 'Review slot details and proceed to secure online checkout.'}
+            </Typography>
+
+            {/* Doctor Summary Card */}
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 2,
+                p: 2,
+                bgcolor: '#F8FAFC',
+                borderRadius: '18px',
+                border: '1px solid #E2E8F0',
+                mb: 3,
+              }}
+            >
+              <Avatar
+                src={doctor.img || doctor.profileImage}
+                sx={{ width: 54, height: 54, border: '2px solid #4F46E5' }}
+              >
+                {doctor.name?.charAt(0)}
+              </Avatar>
+              <Box>
+                <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#1E1B4B' }}>
+                  {doctor.name}
+                </Typography>
+                <Typography variant="caption" sx={{ color: '#4F46E5', fontWeight: 700, display: 'block' }}>
+                  {doctor.specialty || doctor.specialization}
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: '#64748B', mt: 0.3 }}>
+                  <LocationOnOutlined sx={{ fontSize: 13 }} />
+                  <Typography variant="caption">{doctor.clinic || doctor.clinicName || 'MediPulse Hub'}</Typography>
+                </Box>
+              </Box>
+            </Box>
+
+            {/* Dynamic View: Slot Selection vs Stripe Elements Form */}
+            {!clientSecret ? (
+              <>
+                <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#1E1B4B', mb: 1 }}>
+                  Select Preferred Slot
+                </Typography>
+                <RadioGroup value={selectedSlot} onChange={(e) => setSelectedSlot(e.target.value)}>
+                  <Stack spacing={1} sx={{ mb: 2 }}>
+                    {['10:30 AM', '11:30 AM', '02:00 PM', '04:30 PM'].map((slot) => (
+                      <Box
+                        key={slot}
+                        onClick={() => setSelectedSlot(slot)}
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          px: 2,
+                          py: 1,
+                          borderRadius: '14px',
+                          border: selectedSlot === slot ? '1.5px solid #4F46E5' : '1px solid #E2E8F0',
+                          bgcolor: selectedSlot === slot ? '#EEF2FF' : '#FFFFFF',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <AccessTimeOutlined sx={{ fontSize: 18, color: selectedSlot === slot ? '#4F46E5' : '#64748B' }} />
+                          <Typography variant="body2" sx={{ fontWeight: 700, color: selectedSlot === slot ? '#4F46E5' : '#1E1B4B' }}>
+                            {slot}
+                          </Typography>
+                        </Box>
+                        <Radio
+                          size="small"
+                          checked={selectedSlot === slot}
+                          value={slot}
+                          sx={{ color: '#4F46E5', '&.Mui-checked': { color: '#4F46E5' } }}
+                        />
+                      </Box>
+                    ))}
+                  </Stack>
+                </RadioGroup>
+
+                <Divider sx={{ my: 2 }} />
+
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Typography variant="body2" sx={{ color: '#64748B', fontWeight: 600 }}>
+                    Consultation Fee:
+                  </Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 900, color: '#1E1B4B' }}>
+                    ₹{consultFee}
+                  </Typography>
+                </Box>
+              </>
+            ) : (
+              <Elements
+                stripe={stripePromise}
+                options={{
+                  clientSecret,
+                  appearance: {
+                    theme: 'stripe',
+                    variables: {
+                      colorPrimary: '#4F46E5',
+                      borderRadius: '12px',
+                    },
+                  },
+                }}
+              >
+                <StripePaymentForm
+                  consultFee={consultFee}
+                  doctor={doctor}
+                  selectedSlot={selectedSlot}
+                  onSuccess={(data) => {
+                    setBookingSuccessData(data);
+                  }}
+                  onBack={() => setClientSecret(null)}
+                />
+              </Elements>
+            )}
+          </>
         )}
       </DialogContent>
 
-      {!clientSecret && (
+      {!clientSecret && !bookingSuccessData && (
         <DialogActions sx={{ p: 2, pt: 0 }}>
           <Button
             onClick={handleModalClose}

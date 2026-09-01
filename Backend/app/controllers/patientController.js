@@ -2,7 +2,6 @@
 
 
 
-
 const mongoose = require("mongoose");
 const Doctor = require("../models/DoctorModel");
 const Appointment = require("../models/AppointmentModel");
@@ -11,9 +10,9 @@ const httpStatusCode = require("../utils/httpStatusCode");
 const stripe = require("../config/stripeConfig");
 
 class PatientController {
-  // ==========================================
+  
   // 1. GET ALL DOCTORS (SEARCH & SPECIALTY FILTER)
-  // ==========================================
+  
   async getAllDoctors(req, res) {
     try {
       const { specialty, search } = req.query;
@@ -65,9 +64,9 @@ class PatientController {
     }
   }
 
-  // ==========================================
+  
   // 2. BOOK OPD APPOINTMENT SLOT (MANUAL/OFFLINE)
-  // ==========================================
+  
   async bookAppointment(req, res) {
     try {
       const {
@@ -137,9 +136,9 @@ class PatientController {
     }
   }
 
-  // ==========================================
+  
   // 3. GET MY BOOKINGS / LIVE TOKEN STATUS
-  // ==========================================
+  
   async getMyAppointments(req, res) {
     try {
       const rawUserId = req.user?._id || req.user?.id || req.query?.patientId;
@@ -235,9 +234,9 @@ class PatientController {
     }
   }
 
-  // ==========================================
+  
   // 4. SUBMIT PATIENT REVIEW & RATING
-  // ==========================================
+  
   async submitFeedback(req, res) {
     try {
       const { id } = req.params;
@@ -303,9 +302,9 @@ class PatientController {
     }
   }
 
-  // ==========================================
+  
   // 5. CONTACT HEALTH DESK INQUIRY
-  // ==========================================
+  
   async submitContactInquiry(req, res) {
     try {
       const { name, phone, message } = req.body;
@@ -339,9 +338,9 @@ class PatientController {
     }
   }
 
-  // ==========================================
+  
   // 6. CREATE STRIPE PAYMENT INTENT
-  // ==========================================
+  
   async createStripePaymentIntent(req, res) {
     try {
       const { doctorId, timeSlot } = req.body;
@@ -395,9 +394,9 @@ class PatientController {
     }
   }
 
-  // ==========================================
+  
   // 7. VERIFY STRIPE PAYMENT & CONFIRM APPOINTMENT
-  // ==========================================
+  
   async confirmStripePaymentAndBook(req, res) {
     try {
       const { paymentIntentId, bookingData } = req.body;
