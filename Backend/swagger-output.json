@@ -1211,7 +1211,7 @@
         }
       }
     },
-    "/patient/create-razorpay-order": {
+    "/patient/create-stripe-intent": {
       "post": {
         "tags": [
           "Patient Portal"
@@ -1228,7 +1228,13 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "amount": {
+                  "patientId": {
+                    "example": "any"
+                  },
+                  "doctorId": {
+                    "example": "any"
+                  },
+                  "timeSlot": {
                     "example": "any"
                   }
                 }
@@ -1238,7 +1244,7 @@
         }
       }
     },
-    "/patient/verify-payment": {
+    "/patient/confirm-stripe-booking": {
       "post": {
         "tags": [
           "Patient Portal"
@@ -1255,13 +1261,7 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "razorpay_order_id": {
-                    "example": "any"
-                  },
-                  "razorpay_payment_id": {
-                    "example": "any"
-                  },
-                  "razorpay_signature": {
+                  "paymentIntentId": {
                     "example": "any"
                   },
                   "bookingData": {

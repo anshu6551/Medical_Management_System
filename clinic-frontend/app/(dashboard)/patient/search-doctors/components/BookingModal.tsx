@@ -1,3 +1,296 @@
+// 'use client';
+// import React, { useState } from 'react';
+// import {
+//   Dialog,
+//   DialogTitle,
+//   DialogContent,
+//   DialogActions,
+//   Typography,
+//   Box,
+//   Button,
+//   Avatar,
+//   Divider,
+//   Stack,
+//   CircularProgress,
+//   RadioGroup,
+//   Radio,
+// } from '@mui/material';
+// import {
+//   AccessTimeOutlined,
+//   LocationOnOutlined,
+//   AccountBalanceWalletOutlined,
+// } from '@mui/icons-material';
+// import api from '@/lib/api/axios';
+
+// declare let window: any;
+
+// interface BookingModalProps {
+//   open: boolean;
+//   doctor: any | null;
+//   onClose: () => void;
+//   onConfirmBooking: (appointmentData?: any) => void;
+// }
+
+// // Razorpay SDK Script Loader
+// const loadRazorpayScript = () => {
+//   return new Promise((resolve) => {
+//     if (typeof window !== 'undefined' && window.Razorpay) {
+//       resolve(true);
+//       return;
+//     }
+//     const script = document.createElement('script');
+//     script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+//     script.onload = () => resolve(true);
+//     script.onerror = () => resolve(false);
+//     document.body.appendChild(script);
+//   });
+// };
+
+// export default function BookingModal({
+//   open,
+//   doctor,
+//   onClose,
+//   onConfirmBooking,
+// }: BookingModalProps) {
+//   const [selectedSlot, setSelectedSlot] = useState('10:30 AM');
+//   const [loading, setLoading] = useState(false);
+
+//   if (!doctor) return null;
+
+//   const consultFee = typeof doctor.fee === 'string'
+//     ? Number(doctor.fee.replace(/[^0-9]/g, ''))
+//     : (doctor.fee || doctor.consultationFee || 500);
+
+//   const handlePayAndBook = async () => {
+//     try {
+//       setLoading(true);
+
+//       const isLoaded = await loadRazorpayScript();
+//       if (!isLoaded) {
+//         alert('Razorpay SDK failed to load. Please check your internet connection.');
+//         setLoading(false);
+//         return;
+//       }
+
+//       // 1. Backend se Order create karwayein
+//       const orderRes = await api.post('/patient/create-razorpay-order', {
+//         amount: consultFee,
+//       });
+
+//       if (!orderRes.data?.success) {
+//         alert(orderRes.data?.message || 'Could not initiate payment order.');
+//         setLoading(false);
+//         return;
+//       }
+
+//       const { order } = orderRes.data;
+
+//       let storedUser: any = {};
+//       if (typeof window !== 'undefined') {
+//         const u = localStorage.getItem('user');
+//         if (u) {
+//           try {
+//             storedUser = JSON.parse(u);
+//           } catch (e) {}
+//         }
+//       }
+
+//       // 2. Razorpay Popup Options
+//       const options = {
+//         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID ,
+//         amount: order.amount,
+//         currency: order.currency || 'INR',
+//         name: 'MediPulse Healthcare',
+//         description: `Consultation Slot with ${doctor.name}`,
+//         order_id: order.id,
+//         handler: async function (response: any) {
+//           try {
+//             // 3. Payment Verify & Appointment Confirm
+//             const verifyRes = await api.post('/patient/verify-payment', {
+//               razorpay_order_id: response.razorpay_order_id,
+//               razorpay_payment_id: response.razorpay_payment_id,
+//               razorpay_signature: response.razorpay_signature,
+//               bookingData: {
+//                 doctorId: doctor._id || doctor.id,
+//                 clinicId: doctor.clinicId,
+//                 patientId: storedUser._id || storedUser.id,
+//                 appointmentDate: new Date(),
+//                 timeSlot: selectedSlot,
+//                 type: 'General Checkup',
+//               },
+//             });
+
+//             if (verifyRes.data?.success) {
+//               onConfirmBooking(verifyRes.data.data);
+//               onClose();
+//             }
+//           } catch (err: any) {
+//             alert(err?.response?.data?.message || 'Payment verification failed on server.');
+//           } finally {
+//             setLoading(false);
+//           }
+//         },
+//         prefill: {
+//           name: storedUser.name || 'Patient',
+//           email: storedUser.email || 'patient@medipulse.com',
+//           contact: storedUser.phone || '9999999999',
+//         },
+//         theme: {
+//           color: '#4F46E5',
+//         },
+//         modal: {
+//           ondismiss: function () {
+//             setLoading(false);
+//           },
+//         },
+//       };
+
+//       const razorpayInstance = new window.Razorpay(options);
+//       razorpayInstance.open();
+
+//       razorpayInstance.on('payment.failed', function (resp: any) {
+//         alert(`Payment Failed: ${resp.error.description}`);
+//         setLoading(false);
+//       });
+//     } catch (error: any) {
+//       console.error('Booking Payment Error:', error);
+//       alert(error?.response?.data?.message || 'Failed to open Razorpay gateway.');
+//       setLoading(false);
+//     }
+//   };
+
+//   return (
+//     <Dialog
+//       open={open}
+//       onClose={loading ? undefined : onClose}
+//       maxWidth="xs"
+//       fullWidth
+//       PaperProps={{
+//         sx: {
+//           borderRadius: '28px',
+//           p: 1.5,
+//           border: '1.5px solid #E0E7FF',
+//         },
+//       }}
+//     >
+//       <DialogTitle sx={{ fontWeight: 900, color: '#1E1B4B', pb: 0.5 }}>
+//         Confirm OPD Consultation
+//       </DialogTitle>
+
+//       <DialogContent sx={{ pt: 1.5 }}>
+//         <Typography variant="body2" sx={{ color: '#64748B', mb: 2.5 }}>
+//           Review slot details and proceed to secure online checkout.
+//         </Typography>
+
+//         <Box
+//           sx={{
+//             display: 'flex',
+//             alignItems: 'center',
+//             gap: 2,
+//             p: 2,
+//             bgcolor: '#F8FAFC',
+//             borderRadius: '18px',
+//             border: '1px solid #E2E8F0',
+//             mb: 3,
+//           }}
+//         >
+//           <Avatar
+//             src={doctor.img || doctor.profileImage}
+//             sx={{ width: 54, height: 54, border: '2px solid #4F46E5' }}
+//           >
+//             {doctor.name?.charAt(0)}
+//           </Avatar>
+//           <Box>
+//             <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#1E1B4B' }}>
+//               {doctor.name}
+//             </Typography>
+//             <Typography variant="caption" sx={{ color: '#4F46E5', fontWeight: 700, display: 'block' }}>
+//               {doctor.specialty || doctor.specialization}
+//             </Typography>
+//             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: '#64748B', mt: 0.3 }}>
+//               <LocationOnOutlined sx={{ fontSize: 13 }} />
+//               <Typography variant="caption">{doctor.clinic || doctor.clinicName || 'MediPulse Hub'}</Typography>
+//             </Box>
+//           </Box>
+//         </Box>
+
+//         <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#1E1B4B', mb: 1 }}>
+//           Select Preferred Slot
+//         </Typography>
+//         <RadioGroup value={selectedSlot} onChange={(e) => setSelectedSlot(e.target.value)}>
+//           <Stack spacing={1} sx={{ mb: 2 }}>
+//             {['10:30 AM', '11:30 AM', '02:00 PM', '04:30 PM'].map((slot) => (
+//               <Box
+//                 key={slot}
+//                 onClick={() => setSelectedSlot(slot)}
+//                 sx={{
+//                   display: 'flex',
+//                   alignItems: 'center',
+//                   justifyContent: 'space-between',
+//                   px: 2,
+//                   py: 1,
+//                   borderRadius: '14px',
+//                   border: selectedSlot === slot ? '1.5px solid #4F46E5' : '1px solid #E2E8F0',
+//                   bgcolor: selectedSlot === slot ? '#EEF2FF' : '#FFFFFF',
+//                   cursor: 'pointer',
+//                 }}
+//               >
+//                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+//                   <AccessTimeOutlined sx={{ fontSize: 18, color: selectedSlot === slot ? '#4F46E5' : '#64748B' }} />
+//                   <Typography variant="body2" sx={{ fontWeight: 700, color: selectedSlot === slot ? '#4F46E5' : '#1E1B4B' }}>
+//                     {slot}
+//                   </Typography>
+//                 </Box>
+//                 <Radio size="small" checked={selectedSlot === slot} value={slot} sx={{ color: '#4F46E5', '&.Mui-checked': { color: '#4F46E5' } }} />
+//               </Box>
+//             ))}
+//           </Stack>
+//         </RadioGroup>
+
+//         <Divider sx={{ my: 2 }} />
+
+//         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+//           <Typography variant="body2" sx={{ color: '#64748B', fontWeight: 600 }}>
+//             Consultation Fee:
+//           </Typography>
+//           <Typography variant="h6" sx={{ fontWeight: 900, color: '#1E1B4B' }}>
+//             ₹{consultFee}
+//           </Typography>
+//         </Box>
+//       </DialogContent>
+
+//       <DialogActions sx={{ p: 2, pt: 0 }}>
+//         <Button
+//           onClick={onClose}
+//           disabled={loading}
+//           sx={{ color: '#64748B', fontWeight: 700, textTransform: 'none' }}
+//         >
+//           Cancel
+//         </Button>
+//         <Button
+//           variant="contained"
+//           disableElevation
+//           disabled={loading}
+//           onClick={handlePayAndBook}
+//           startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <AccountBalanceWalletOutlined />}
+//           sx={{
+//             bgcolor: '#4F46E5',
+//             '&:hover': { bgcolor: '#4338CA' },
+//             fontWeight: 800,
+//             borderRadius: '50px',
+//             px: 3,
+//             py: 1,
+//             textTransform: 'none',
+//           }}
+//         >
+//           {loading ? 'Opening Payment...' : `Pay ₹${consultFee} & Confirm`}
+//         </Button>
+//       </DialogActions>
+//     </Dialog>
+//   );
+// }
+
+
 'use client';
 import React, { useState } from 'react';
 import {
@@ -14,15 +307,23 @@ import {
   CircularProgress,
   RadioGroup,
   Radio,
+  Alert,
 } from '@mui/material';
 import {
   AccessTimeOutlined,
   LocationOnOutlined,
   AccountBalanceWalletOutlined,
+  ArrowBack,
 } from '@mui/icons-material';
+import { loadStripe } from '@stripe/stripe-js';
+import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import api from '@/lib/api/axios';
+import { API_ENDPOINTS } from '@/lib/api/endpoints'; // 👈 Check path if exists
 
-declare let window: any;
+// Initialize Stripe instance outside component rendering
+const stripePromise = loadStripe(
+  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || ''
+);
 
 interface BookingModalProps {
   open: boolean;
@@ -31,21 +332,135 @@ interface BookingModalProps {
   onConfirmBooking: (appointmentData?: any) => void;
 }
 
-// Razorpay SDK Script Loader
-const loadRazorpayScript = () => {
-  return new Promise((resolve) => {
-    if (typeof window !== 'undefined' && window.Razorpay) {
-      resolve(true);
-      return;
-    }
-    const script = document.createElement('script');
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    script.onload = () => resolve(true);
-    script.onerror = () => resolve(false);
-    document.body.appendChild(script);
-  });
-};
+// -------------------------------------------------------------
+// Child Component: Stripe Form (Needs useStripe & useElements)
+// -------------------------------------------------------------
+function StripePaymentForm({
+  consultFee,
+  doctor,
+  selectedSlot,
+  onSuccess,
+  onBack,
+}: {
+  consultFee: number;
+  doctor: any;
+  selectedSlot: string;
+  onSuccess: (data: any) => void;
+  onBack: () => void;
+}) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
+  const handlePay = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!stripe || !elements) return;
+
+    setSubmitting(true);
+    setErrorMessage('');
+
+    try {
+      // 1. Confirm Payment through Stripe
+      const result = await stripe.confirmPayment({
+        elements,
+        confirmParams: {
+          return_url: `${window.location.origin}/patient/appointments`,
+        },
+        redirect: 'if_required',
+      });
+
+      if (result.error) {
+        setErrorMessage(result.error.message || 'Payment confirmation failed');
+        setSubmitting(false);
+        return;
+      }
+
+      // 2. Payment Succeeded -> Call Backend to Save Appointment in DB
+      if (result.paymentIntent && result.paymentIntent.status === 'succeeded') {
+        let storedUser: any = {};
+        if (typeof window !== 'undefined') {
+          const u = localStorage.getItem('user');
+          if (u) {
+            try {
+              storedUser = JSON.parse(u);
+            } catch (err) {}
+          }
+        }
+
+        const endpoint = API_ENDPOINTS?.PATIENT?.CONFIRM_STRIPE_BOOKING || '/patient/confirm-stripe-booking';
+        const verifyRes = await api.post(endpoint, {
+          paymentIntentId: result.paymentIntent.id,
+          bookingData: {
+            doctorId: doctor._id || doctor.id,
+            clinicId: doctor.clinicId,
+            patientId: storedUser._id || storedUser.id,
+            appointmentDate: new Date(),
+            timeSlot: selectedSlot,
+            type: 'General Checkup',
+          },
+        });
+
+        if (verifyRes.data?.success) {
+          onSuccess(verifyRes.data.data);
+        } else {
+          setErrorMessage(verifyRes.data?.message || 'Failed to confirm booking on server.');
+        }
+      }
+    } catch (err: any) {
+      setErrorMessage(err?.response?.data?.message || 'Server error confirming appointment.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handlePay}>
+      <Box sx={{ my: 2 }}>
+        <PaymentElement />
+      </Box>
+
+      {errorMessage && (
+        <Alert severity="error" sx={{ mb: 2, borderRadius: '12px' }}>
+          {errorMessage}
+        </Alert>
+      )}
+
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 3 }}>
+        <Button
+          onClick={onBack}
+          disabled={submitting}
+          startIcon={<ArrowBack />}
+          sx={{ color: '#64748B', fontWeight: 700, textTransform: 'none' }}
+        >
+          Back
+        </Button>
+        <Button
+          type="submit"
+          variant="contained"
+          disableElevation
+          disabled={!stripe || submitting}
+          startIcon={submitting ? <CircularProgress size={16} color="inherit" /> : <AccountBalanceWalletOutlined />}
+          sx={{
+            bgcolor: '#4F46E5',
+            '&:hover': { bgcolor: '#4338CA' },
+            fontWeight: 800,
+            borderRadius: '50px',
+            px: 3,
+            py: 1,
+            textTransform: 'none',
+          }}
+        >
+          {submitting ? 'Processing...' : `Pay ₹${consultFee} & Confirm`}
+        </Button>
+      </Box>
+    </form>
+  );
+}
+
+// -------------------------------------------------------------
+// Main Booking Modal Component
+// -------------------------------------------------------------
 export default function BookingModal({
   open,
   doctor,
@@ -54,6 +469,7 @@ export default function BookingModal({
 }: BookingModalProps) {
   const [selectedSlot, setSelectedSlot] = useState('10:30 AM');
   const [loading, setLoading] = useState(false);
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
 
   if (!doctor) return null;
 
@@ -61,108 +477,38 @@ export default function BookingModal({
     ? Number(doctor.fee.replace(/[^0-9]/g, ''))
     : (doctor.fee || doctor.consultationFee || 500);
 
-  const handlePayAndBook = async () => {
+  // Step 1: Initialize Payment Intent with Backend
+  const handleProceedToPayment = async () => {
     try {
       setLoading(true);
-
-      const isLoaded = await loadRazorpayScript();
-      if (!isLoaded) {
-        alert('Razorpay SDK failed to load. Please check your internet connection.');
-        setLoading(false);
-        return;
-      }
-
-      // 1. Backend se Order create karwayein
-      const orderRes = await api.post('/patient/create-razorpay-order', {
-        amount: consultFee,
+      const endpoint = API_ENDPOINTS?.PATIENT?.CREATE_STRIPE_INTENT || '/patient/create-stripe-intent';
+      const res = await api.post(endpoint, {
+        doctorId: doctor._id || doctor.id,
+        timeSlot: selectedSlot,
       });
 
-      if (!orderRes.data?.success) {
-        alert(orderRes.data?.message || 'Could not initiate payment order.');
-        setLoading(false);
-        return;
+      if (res.data?.success && res.data?.clientSecret) {
+        setClientSecret(res.data.clientSecret);
+      } else {
+        alert(res.data?.message || 'Could not initiate payment.');
       }
-
-      const { order } = orderRes.data;
-
-      let storedUser: any = {};
-      if (typeof window !== 'undefined') {
-        const u = localStorage.getItem('user');
-        if (u) {
-          try {
-            storedUser = JSON.parse(u);
-          } catch (e) {}
-        }
-      }
-
-      // 2. Razorpay Popup Options
-      const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID ,
-        amount: order.amount,
-        currency: order.currency || 'INR',
-        name: 'MediPulse Healthcare',
-        description: `Consultation Slot with ${doctor.name}`,
-        order_id: order.id,
-        handler: async function (response: any) {
-          try {
-            // 3. Payment Verify & Appointment Confirm
-            const verifyRes = await api.post('/patient/verify-payment', {
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-              bookingData: {
-                doctorId: doctor._id || doctor.id,
-                clinicId: doctor.clinicId,
-                patientId: storedUser._id || storedUser.id,
-                appointmentDate: new Date(),
-                timeSlot: selectedSlot,
-                type: 'General Checkup',
-              },
-            });
-
-            if (verifyRes.data?.success) {
-              onConfirmBooking(verifyRes.data.data);
-              onClose();
-            }
-          } catch (err: any) {
-            alert(err?.response?.data?.message || 'Payment verification failed on server.');
-          } finally {
-            setLoading(false);
-          }
-        },
-        prefill: {
-          name: storedUser.name || 'Patient',
-          email: storedUser.email || 'patient@medipulse.com',
-          contact: storedUser.phone || '9999999999',
-        },
-        theme: {
-          color: '#4F46E5',
-        },
-        modal: {
-          ondismiss: function () {
-            setLoading(false);
-          },
-        },
-      };
-
-      const razorpayInstance = new window.Razorpay(options);
-      razorpayInstance.open();
-
-      razorpayInstance.on('payment.failed', function (resp: any) {
-        alert(`Payment Failed: ${resp.error.description}`);
-        setLoading(false);
-      });
-    } catch (error: any) {
-      console.error('Booking Payment Error:', error);
-      alert(error?.response?.data?.message || 'Failed to open Razorpay gateway.');
+    } catch (err: any) {
+      console.error('Stripe Intent Init Error:', err);
+      alert(err?.response?.data?.message || 'Failed to initialize payment gateway.');
+    } finally {
       setLoading(false);
     }
+  };
+
+  const handleModalClose = () => {
+    setClientSecret(null);
+    onClose();
   };
 
   return (
     <Dialog
       open={open}
-      onClose={loading ? undefined : onClose}
+      onClose={loading ? undefined : handleModalClose}
       maxWidth="xs"
       fullWidth
       PaperProps={{
@@ -179,9 +525,12 @@ export default function BookingModal({
 
       <DialogContent sx={{ pt: 1.5 }}>
         <Typography variant="body2" sx={{ color: '#64748B', mb: 2.5 }}>
-          Review slot details and proceed to secure online checkout.
+          {clientSecret
+            ? 'Complete your card details below to confirm the appointment.'
+            : 'Review slot details and proceed to secure online checkout.'}
         </Typography>
 
+        {/* Doctor Summary Card */}
         <Box
           sx={{
             display: 'flex',
@@ -214,78 +563,115 @@ export default function BookingModal({
           </Box>
         </Box>
 
-        <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#1E1B4B', mb: 1 }}>
-          Select Preferred Slot
-        </Typography>
-        <RadioGroup value={selectedSlot} onChange={(e) => setSelectedSlot(e.target.value)}>
-          <Stack spacing={1} sx={{ mb: 2 }}>
-            {['10:30 AM', '11:30 AM', '02:00 PM', '04:30 PM'].map((slot) => (
-              <Box
-                key={slot}
-                onClick={() => setSelectedSlot(slot)}
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  px: 2,
-                  py: 1,
-                  borderRadius: '14px',
-                  border: selectedSlot === slot ? '1.5px solid #4F46E5' : '1px solid #E2E8F0',
-                  bgcolor: selectedSlot === slot ? '#EEF2FF' : '#FFFFFF',
-                  cursor: 'pointer',
-                }}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <AccessTimeOutlined sx={{ fontSize: 18, color: selectedSlot === slot ? '#4F46E5' : '#64748B' }} />
-                  <Typography variant="body2" sx={{ fontWeight: 700, color: selectedSlot === slot ? '#4F46E5' : '#1E1B4B' }}>
-                    {slot}
-                  </Typography>
-                </Box>
-                <Radio size="small" checked={selectedSlot === slot} value={slot} sx={{ color: '#4F46E5', '&.Mui-checked': { color: '#4F46E5' } }} />
-              </Box>
-            ))}
-          </Stack>
-        </RadioGroup>
+        {/* Dynamic View: Slot Selection vs Stripe Elements Form */}
+        {!clientSecret ? (
+          <>
+            <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#1E1B4B', mb: 1 }}>
+              Select Preferred Slot
+            </Typography>
+            <RadioGroup value={selectedSlot} onChange={(e) => setSelectedSlot(e.target.value)}>
+              <Stack spacing={1} sx={{ mb: 2 }}>
+                {['10:30 AM', '11:30 AM', '02:00 PM', '04:30 PM'].map((slot) => (
+                  <Box
+                    key={slot}
+                    onClick={() => setSelectedSlot(slot)}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      px: 2,
+                      py: 1,
+                      borderRadius: '14px',
+                      border: selectedSlot === slot ? '1.5px solid #4F46E5' : '1px solid #E2E8F0',
+                      bgcolor: selectedSlot === slot ? '#EEF2FF' : '#FFFFFF',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <AccessTimeOutlined sx={{ fontSize: 18, color: selectedSlot === slot ? '#4F46E5' : '#64748B' }} />
+                      <Typography variant="body2" sx={{ fontWeight: 700, color: selectedSlot === slot ? '#4F46E5' : '#1E1B4B' }}>
+                        {slot}
+                      </Typography>
+                    </Box>
+                    <Radio
+                      size="small"
+                      checked={selectedSlot === slot}
+                      value={slot}
+                      sx={{ color: '#4F46E5', '&.Mui-checked': { color: '#4F46E5' } }}
+                    />
+                  </Box>
+                ))}
+              </Stack>
+            </RadioGroup>
 
-        <Divider sx={{ my: 2 }} />
+            <Divider sx={{ my: 2 }} />
 
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="body2" sx={{ color: '#64748B', fontWeight: 600 }}>
-            Consultation Fee:
-          </Typography>
-          <Typography variant="h6" sx={{ fontWeight: 900, color: '#1E1B4B' }}>
-            ₹{consultFee}
-          </Typography>
-        </Box>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="body2" sx={{ color: '#64748B', fontWeight: 600 }}>
+                Consultation Fee:
+              </Typography>
+              <Typography variant="h6" sx={{ fontWeight: 900, color: '#1E1B4B' }}>
+                ₹{consultFee}
+              </Typography>
+            </Box>
+          </>
+        ) : (
+          <Elements
+            stripe={stripePromise}
+            options={{
+              clientSecret,
+              appearance: {
+                theme: 'stripe',
+                variables: {
+                  colorPrimary: '#4F46E5',
+                  borderRadius: '12px',
+                },
+              },
+            }}
+          >
+            <StripePaymentForm
+              consultFee={consultFee}
+              doctor={doctor}
+              selectedSlot={selectedSlot}
+              onSuccess={(data) => {
+                onConfirmBooking(data);
+                handleModalClose();
+              }}
+              onBack={() => setClientSecret(null)}
+            />
+          </Elements>
+        )}
       </DialogContent>
 
-      <DialogActions sx={{ p: 2, pt: 0 }}>
-        <Button
-          onClick={onClose}
-          disabled={loading}
-          sx={{ color: '#64748B', fontWeight: 700, textTransform: 'none' }}
-        >
-          Cancel
-        </Button>
-        <Button
-          variant="contained"
-          disableElevation
-          disabled={loading}
-          onClick={handlePayAndBook}
-          startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <AccountBalanceWalletOutlined />}
-          sx={{
-            bgcolor: '#4F46E5',
-            '&:hover': { bgcolor: '#4338CA' },
-            fontWeight: 800,
-            borderRadius: '50px',
-            px: 3,
-            py: 1,
-            textTransform: 'none',
-          }}
-        >
-          {loading ? 'Opening Payment...' : `Pay ₹${consultFee} & Confirm`}
-        </Button>
-      </DialogActions>
+      {!clientSecret && (
+        <DialogActions sx={{ p: 2, pt: 0 }}>
+          <Button
+            onClick={handleModalClose}
+            disabled={loading}
+            sx={{ color: '#64748B', fontWeight: 700, textTransform: 'none' }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            disableElevation
+            disabled={loading}
+            onClick={handleProceedToPayment}
+            startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <AccountBalanceWalletOutlined />}
+            sx={{
+              bgcolor: '#4F46E5',
+              '&:hover': { bgcolor: '#4338CA' },
+              fontWeight: 800,
+              borderRadius: '50px',
+              px: 3,
+              py: 1,
+              textTransform: 'none',
+            }}
+          >
+            {loading ? 'Initializing...' : `Proceed to Pay ₹${consultFee}`}
+          </Button>
+        </DialogActions>
+      )}
     </Dialog>
   );
 }

@@ -54,5 +54,7 @@
     CONTACT: '/patient/contact',
     APPOINTMENTS: '/patient/appointments',
     FEEDBACK: (id) => `/patient/appointments/${id}/feedback`,
-  },
+    CREATE_STRIPE_INTENT: '/patient/create-stripe-intent',
+    CONFIRM_STRIPE_BOOKING: '/patient/confirm-stripe-booking',
+  }
 };

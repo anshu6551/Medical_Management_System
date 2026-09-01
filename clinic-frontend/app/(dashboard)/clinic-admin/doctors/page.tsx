@@ -157,7 +157,7 @@ export default function DoctorsManagementPage() {
             </Typography>
           </Box>
 
-          <Button
+          {/* <Button
             variant="contained"
             disableElevation
             onClick={() => {
@@ -177,7 +177,7 @@ export default function DoctorsManagementPage() {
             }}
           >
             Add Doctor
-          </Button>
+          </Button> */}
         </Box>
 
         {/* Filter Controls Bar */}
